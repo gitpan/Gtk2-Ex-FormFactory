@@ -56,8 +56,16 @@ sub add_object {
 
 	if ( $attr_depends_href ) {
 		my $depend_trigger_href = $self->get_depend_trigger_href;
-		$depend_trigger_href->{$attr_depends_href->{$_}}->{"$name.$_"} = 1
-			for keys %{$attr_depends_href};
+		foreach my $attr ( keys %{$attr_depends_href} ) {
+			if ( not ref $attr_depends_href->{$attr} ) {
+				$depend_trigger_href->{$attr_depends_href->{$attr}}->{"$name.$attr"} = 1;
+			} elsif ( ref $attr_depends_href->{$attr} eq 'ARRAY' ) {
+				$depend_trigger_href->{$_}->{"$name.$attr"} = 1
+					for @{$attr_depends_href->{$attr}};
+			} else {
+				croak "Illegal attr_depends_href value for attribute '$attr'";
+			}
+		}
 	}
 
 	my $proxies_by_name_href = $self->get_proxies_by_name_href;
@@ -475,6 +483,16 @@ you add a corresponding B<attr_depends_href> entry.
 Now the GUI will automatically activate the Widget for
 the B<ident_number> attribute once B<may_override_ident_number>
 is set, e.g. by a CheckBox the user clicked.
+
+If an attribute depends on more than one other attributes
+you can use a list reference:
+
+  attr_depends_href => sub {
+      ident_number => [
+        "person.may_override_ident_number",
+	"foo.bar",
+      ],
+  },
 
 =back
 

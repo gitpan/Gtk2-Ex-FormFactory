@@ -395,13 +395,17 @@ sub update_widget_activity {
 #========================================================================
 sub get_object_value {
 	my $self = shift;
-	
+	my ($attr) = @_;
+
+	#-- By default get the primary attribute
+	$attr ||= $self->get_attr;
+
 	#-- Return nothing if this widget has no associated Object
 	return if not $self->get_object;
 
 	#-- Otherweise use the Proxy to return the Object's value
 	return $self->get_proxy($self->get_object)
-		    ->get_attr ($self->get_attr);
+		    ->get_attr ($attr);
 }
 
 #========================================================================
@@ -409,14 +413,21 @@ sub get_object_value {
 #========================================================================
 sub set_object_value {
 	my $self = shift;
-	my ($value) = @_;
+	my ($attr, $value) = @_;
+
+	#-- If only one argument is given this is the value of
+	#-- the default attribute of this widget
+	if ( @_ == 1 ) {
+		$value = $attr;
+		$attr  = $self->get_attr;
+	}
 
 	#-- Do nothing if this widget has no associated Object
 	return if not $self->get_object;
 
 	#-- Otherwise use the Proxy to set the Object's value
 	return $self->get_proxy($self->get_object)
-		    ->set_attr ($self->get_attr => $value );
+		    ->set_attr ($attr => $value );
 }
 
 #========================================================================
@@ -781,15 +792,17 @@ Same as B<update>, but containers will update their children as well.
 
 Only update the Widget's activity state.
 
-=item $app_object_attr_value = $widget->B<get_object_value> ()
+=item $app_object_attr_value = $widget->B<get_object_value> ([$attr])
 
-A convenience method to get the actual value of the associated
-application object attribute.
+A convenience method to get the actual value of an associated
+application object attribute. If B<$attr> is omitted, the default
+attribute is used.
 
-=item $widget->B<set_object_value> ( $value )
+=item $widget->B<set_object_value> ( [$attr, ] $value )
 
-A convenience method to set the actual value of the associated
-application object attribute to B<$value>.
+A convenience method to set the actual value of an associated
+application object attribute to B<$value>. If B<$attr> is omitted,
+the default attribute is used.
 
 =item $widget->B<check_widget_value> ()
 

@@ -72,6 +72,12 @@ sub object_to_widget {
 		my $image_width    = $gtk_pixbuf->get_width;
 		my $image_height   = $gtk_pixbuf->get_height;
 
+		if ( $scale == 1 ) {
+			$gtk_image->set_from_pixbuf ( $gtk_pixbuf );
+			$gtk_image->set_size_request ($image_width, $image_height);
+			return 1;
+		}
+
 		my $new_width  = int($image_width  * $scale);	
 		my $new_height = int($image_height * $scale);	
 		return if $new_width <= 0 or $new_height <= 0;
@@ -81,6 +87,7 @@ sub object_to_widget {
 		);
 
 		$gtk_image->set_from_pixbuf ( $scaled_pixbuf );
+		$gtk_image->set_size_request ($image_width, $image_height);
 
 	} elsif ( $scale_hook ) {
 		my $scale = &$scale_hook($self, $gtk_pixbuf);

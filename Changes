@@ -1,6 +1,25 @@
-$Id: Changes,v 1.2 2004/11/20 11:53:50 joern Exp $
+$Id: Changes,v 1.4 2004/12/27 13:52:48 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.51 Mon Dec 27, 2004, joern
+	Bugfixes:
+	- Container: on cleanup the internal content list was
+	  set to undef instead to [].
+	
+	Features:
+	- Context: attr_depends_href extended, so it accepts a list
+	  reference of attributes an attribute depends on, not
+	  only a single attribute.
+	- Image: with a constant scale of 1 all magic regarding scale
+	  calculation is switched off
+	- Window: if a window has a FormFactory parent, FormFactory->close()
+	  is called automatically when the window is destroyed.
+	- Container: Print a better error message if a child of a
+	  container isn't defined.
+
+	Notes:
+	- Added GPL LICENSE file to the distribution
 
 0.50 Sat Nov 20, 2004, joern
 	First public release. Refer to http://www.exit1.org/

@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.50";
+$VERSION = "0.51";
 
 use strict;
 

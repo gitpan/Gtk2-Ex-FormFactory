@@ -154,6 +154,14 @@ sub build_window {
 	$window->set_gtk_widget($vbox);
 	$window->set_gtk_parent_widget($gtk_window);
 	
+	if ( $window->get_parent->isa("Gtk2::Ex::FormFactory") ) {
+		$gtk_window->signal_connect (
+			destroy => sub {
+				$window->get_form_factory->close;
+			},
+		);
+	}
+	
 	1;
 }
 
@@ -603,7 +611,7 @@ sub build_dialog_buttons {
 			$default_handler = &$clicked_hook_before("apply")
 				if $clicked_hook_before;
 			return if not $default_handler;
-		    	$dialog_buttons->get_form_factory->cancel;
+		    	$dialog_buttons->get_form_factory->apply;
 			&$clicked_hook_after("apply")
 				if $clicked_hook_after;
 		    },
@@ -621,7 +629,7 @@ sub build_dialog_buttons {
 		$default_handler = &$clicked_hook_before("ok")
 			if $clicked_hook_before;
 		return if not $default_handler;
-		$dialog_buttons->get_form_factory->cancel;
+		$dialog_buttons->get_form_factory->ok;
 		&$clicked_hook_after("ok")
 			if $clicked_hook_after;
 	    },

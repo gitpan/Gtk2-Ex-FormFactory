@@ -31,6 +31,9 @@ By default a Window automatically is implemented with an VBox. So
 you can add more than one widget to a Gtk2::Ex::FormFactory::Window
 in contrast to a Gtk2::Window.
 
+Note: if a window has a Gtk2::Ex::FormFactory parent, the FormFactory
+is closed automatically when the window gets destroyed.
+
 =head1 OBJECT HIERARCHY
 
   Gtk2::Ex::FormFactory::Intro

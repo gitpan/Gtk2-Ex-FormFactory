@@ -37,5 +37,6 @@ t/02.context.t
 Changes
 Makefile.PL
 MANIFEST
+LICENSE
 README
 META.yml                                 Module meta-data (added by MakeMaker)

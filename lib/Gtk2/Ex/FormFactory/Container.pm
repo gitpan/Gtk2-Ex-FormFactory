@@ -33,6 +33,10 @@ sub new {
 	#-- objects accordingly.
 	my @content_with_objects;
 	for ( my $i=0; $i < @{$content}; ++$i ) {
+		if ( not defined $content->[$i] ) {
+		  die "Child #$i of ".$self->get_type."/".$self->get_name.
+		      " is not defined";
+		}
 		if ( not ref $content->[$i] ) {
 			#-- No object, so derive the class name
 			#-- from the short name
@@ -124,7 +128,7 @@ sub cleanup {
 	$_->cleanup for @{$self->get_content};
 	$self->SUPER::cleanup(@_);
 
-	$self->set_content(undef);
+	$self->set_content([]);
 
 	1;
 }
