@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.51";
+$VERSION = "0.53";
 
 use strict;
 
@@ -16,11 +16,13 @@ use Gtk2::Ex::FormFactory::Rules;
 
 use Gtk2::Ex::FormFactory::Button;
 use Gtk2::Ex::FormFactory::CheckButton;
+use Gtk2::Ex::FormFactory::CheckButtonGroup;
 use Gtk2::Ex::FormFactory::Combo;
 use Gtk2::Ex::FormFactory::DialogButtons;
 use Gtk2::Ex::FormFactory::Entry;
 use Gtk2::Ex::FormFactory::Expander;
 use Gtk2::Ex::FormFactory::Form;
+use Gtk2::Ex::FormFactory::GtkWidget;
 use Gtk2::Ex::FormFactory::HBox;
 use Gtk2::Ex::FormFactory::HSeparator;
 use Gtk2::Ex::FormFactory::Image;
@@ -32,6 +34,8 @@ use Gtk2::Ex::FormFactory::Popup;
 use Gtk2::Ex::FormFactory::ProgressBar;
 use Gtk2::Ex::FormFactory::RadioButton;
 use Gtk2::Ex::FormFactory::Table;
+use Gtk2::Ex::FormFactory::TextView;
+use Gtk2::Ex::FormFactory::Timestamp;
 use Gtk2::Ex::FormFactory::ToggleButton;
 use Gtk2::Ex::FormFactory::VBox;
 use Gtk2::Ex::FormFactory::Window;
@@ -42,24 +46,26 @@ sub get_sync			{ shift->{sync}				}
 sub get_layouter		{ shift->{layouter}			}
 sub get_rule_checker		{ shift->{rule_checker}			}
 sub get_ok_hook			{ shift->{ok_hook}			}
-sub get_no_widget_updates	{ shift->{no_widget_updates}		}
 sub get_gtk_size_groups		{ shift->{gtk_size_groups}		}
+sub get_parent_ff		{ shift->{parent_ff}			}
+sub get_widgets_by_name		{ shift->{widgets_by_name}		}
 
 sub set_context			{ shift->{context}		= $_[1]	}
 sub set_sync			{ shift->{sync}			= $_[1]	}
 sub set_layouter		{ shift->{layouter}		= $_[1]	}
 sub set_rule_checker		{ shift->{rule_checker}		= $_[1]	}
 sub set_ok_hook			{ shift->{ok_hook}		= $_[1]	}
-sub set_no_widget_updates	{ shift->{no_widget_updates}	= $_[1]	}
 sub set_gtk_size_groups		{ shift->{gtk_size_groups}	= $_[1]	}
+sub set_parent_ff		{ shift->{parent_ff}		= $_[1]	}
+sub set_widgets_by_name		{ shift->{widgets_by_name}	= $_[1]	}
 
 sub get_form_factory		{ shift					}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my  ($context, $sync, $layouter, $rule_checker, $ok_hook) =
-	@par{'context','sync','layouter','rule_checker','ok_hook'};
+	my  ($context, $parent_ff, $sync, $layouter, $rule_checker, $ok_hook) =
+	@par{'context','parent_ff','sync','layouter','rule_checker','ok_hook'};
 
 	my $self = $class->SUPER::new(@_);
 
@@ -68,12 +74,14 @@ sub new {
 	$layouter     ||= Gtk2::Ex::FormFactory::Layout->new;
 	$rule_checker ||= Gtk2::Ex::FormFactory::Rules->new;
 
+	$self->set_parent_ff       ($parent_ff);
 	$self->set_context         ($context);
 	$self->set_sync	           ($sync);
 	$self->set_layouter        ($layouter);
 	$self->set_rule_checker    ($rule_checker);
 	$self->set_ok_hook	   ($ok_hook);
 	$self->set_gtk_size_groups ({});
+	$self->set_widgets_by_name ({});
 
 	return $self;
 }
@@ -84,17 +92,29 @@ sub cleanup {
 	$self->SUPER::cleanup(@_);
 	
 	$self->set_gtk_size_groups({});
+	$self->set_widgets_by_name({});
 
 	1;
 }
 
 sub open {
 	my $self = shift;
-	
+	my %par = @_;
+	my ($hide) = $par{'hide'};
+
 	#-- First build all widgets as implemented in the Widget class
 	$self->build();
 	
-	#-- Now show all widgets
+	#-- Now show all widgets, if we shouldn't keep the hided
+	$self->show if not $hide;
+	
+	1;
+}
+
+sub show {
+	my $self = shift;
+	
+	#-- Show all widgets
 	foreach my $child ( @{$self->get_content} ) {
 		$child->get_gtk_parent_widget->show_all;
 	}
@@ -117,7 +137,7 @@ sub update {
 sub ok {
 	my $self = shift;
 
-	$self->apply_changes if not $self->get_sync;
+	$self->apply if not $self->get_sync;
 	$self->close;
 	
 	1;
@@ -147,6 +167,87 @@ sub close {
 	$self->cleanup;
 
 	1;
+}
+
+sub register_widget {
+	my $self = shift;
+	my ($widget) = @_;
+	
+	$self->get_widgets_by_name->{$widget->get_name} = $widget;
+	
+	1;
+}
+
+sub get_widget {
+	my $self = shift;
+	my ($name) = @_;
+	
+	my $widget;
+	
+	die "Widget '$name' not registered to this ".
+	    "form factory ('".$self->get_name."')"
+	    	unless $widget = $self->get_widgets_by_name->{$name};
+
+	return $widget;
+}
+
+sub get_form_factory_gtk_window {
+	my $self = shift;
+	
+	my $gtk_window;
+	foreach my $child ( @{$self->get_content} ) {
+		if ( $child->isa("Gtk2::Ex::FormFactory::Window") ) {
+			$gtk_window = $child->get_gtk_parent_widget;
+			last;
+		}
+	}
+	
+	return $gtk_window;
+}
+
+sub open_confirm_window {
+	my $self = shift;
+	my %par = @_;
+	my  ($message, $yes_callback, $no_callback, $position) =
+	@par{'message','yes_callback','no_callback','position'};
+
+	$position  ||= "center-on-parent";
+
+	my $confirm = Gtk2::MessageDialog->new_with_markup (
+		$self->get_form_factory_gtk_window,
+		["modal","destroy-with-parent"],
+		"question",
+		"yes_no",
+		$message
+	);
+
+	$confirm->signal_connect("response", sub {
+		my ($widget, $answer) = @_;
+		if ( $answer eq 'yes' ) {
+			&$yes_callback() if $yes_callback;
+		}
+		if ( $answer eq 'no' ) {
+			&$no_callback() if $no_callback;
+		}
+		$widget->destroy;
+		1;
+	});
+
+	$confirm->set_position ($position);
+	$confirm->show;
+
+	1;
+}
+
+sub get_image_path {
+	my $class = shift;
+	my ($filename) = @_;
+	
+	foreach my $dir ( @INC ) {
+		return "$dir/$filename" if -f "$dir/$filename";
+	}
+	
+	return;
 }
 
 1;
@@ -299,16 +400,26 @@ Gtk2::Ex::FormFactory::Context, don't work on widget/GUI level. That's
 why automatic dependency resolution / widget updating only works
 for FormFactory's with B<sync> set to TRUE.
 
+=item B<parent_ff> = Gtk2::Ex::FormFactory object [optional]
+
+You may specify a parent Gtk2::Ex::FormFactory object. The Gtk Window
+of this FormFactory will be set transient to the Gtk Window of the
+parent FormFactory.
+
 =back
 
 =head1 METHODS
 
 =over 4
 
-=item $form_factory->B<open> ()
+=item $form_factory->B<open> ( [ hide => BOOL ])
 
-This actually builds and displays the GUI. Until this method is called you
+This actually builds and displays the GUI, if you set the B<hide>
+parameter to a true value. Until this method is called you
 can add new or modify existent Widgets of this FormFactory.
+
+If you set B<hide> you need to call $form_factory->show later,
+otherwise all widgets will keep invisible.
 
 No object data will be transfered to the GUI, so it will be
 more or less empty. Call B<update> to put data into the GUI.
@@ -346,6 +457,33 @@ need first to be deleted until Perl can exit the program cleanly.
 =item $form_factory->B<cancel>
 
 Currently this simply calls $form_factory->B<close>.
+
+=item $widget = $form_factory->B<get_widget> ( $name )
+
+Returns the Gtk2::Ex::FormFactory::Widget object named
+B<$name> of this FormFactory.
+
+=item $form_factory->B<open_confirm_window> ( parameters )
+
+This is a convenience method to open a confirmation window
+which is set transient to the window of this FormFactory.
+The following parameters are known:
+
+  message       The message resp. question
+  position      Position of the dialog. Defaults to 'center-on-parent'.
+		Other known values are: 'none', 'center', 'mouse'
+		and 'center-always'
+  yes_callback  Code reference to be called if the user
+                answered your question with "Yes"
+  no_callback   Code reference to be called if the user
+                answered your question with "No"
+
+=item $filename = $form_factory->B<get_image_path>
+
+This is a convenience method to find a filename inside Perl's
+@INC path. You will need this if you ship images or icons
+inside your module namespace and want to retreive the actual
+filenames of them.
 
 =back
 

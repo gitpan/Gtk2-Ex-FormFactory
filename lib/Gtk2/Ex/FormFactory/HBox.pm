@@ -8,20 +8,23 @@ sub get_type { "hbox" }
 
 sub get_homogenous		{ shift->{homogenous}			}
 sub get_spacing			{ shift->{spacing}			}
+sub get_no_frame		{ shift->{no_frame}			}
 
 sub set_homogenous		{ shift->{homogenous}		= $_[1]	}
 sub set_spacing			{ shift->{spacing}		= $_[1]	}
+sub set_no_frame		{ shift->{no_frame}		= $_[1]	}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my  ($homogenous, $spacing) =
-	@par{'homogenous','spacing'};
+	my  ($homogenous, $spacing, $no_frame) =
+	@par{'homogenous','spacing','no_frame'};
 
 	my $self = $class->SUPER::new(@_);
 	
 	$self->set_homogenous($homogenous);
 	$self->set_spacing($spacing);
+	$self->set_no_frame($no_frame);
 
 	return $self;
 }
@@ -37,8 +40,9 @@ Gtk2::Ex::FormFactory::HBox - A HBox in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::HBox->new (
-    homogenous => BOOL,
-    spacing    => INTEGER,
+    homogenous => Bool,
+    spacing    => Integer,
+    no_frame   => Bool,
     ...
     Gtk2::Ex::FormFactory::Container attributes
     Gtk2::Ex::FormFactory::Widget attributes
@@ -82,6 +86,11 @@ of Gtk2::Box.
 The number of pixels between the child widgets in this HBox.
 This is a convenience attribute for the B<spacing> property
 of Gtk2::Box.
+
+=item B<no_frame> = BOOL [optional]
+
+By default a frame is added to the HBox if it has a B<title>.
+Set B<no_frame> to a true value to supress this.
 
 =back
 

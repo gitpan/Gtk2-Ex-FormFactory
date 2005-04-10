@@ -14,6 +14,7 @@ sub get_object			{ shift->{object}			}
 sub get_attr			{ shift->{attr}				}
 sub get_properties		{ shift->{properties}			}
 sub get_label			{ shift->{label}			}
+sub get_label_markup		{ shift->{label_markup}			}
 sub get_label_group		{ shift->{label_group}			}
 sub get_widget_group		{ shift->{widget_group}			}
 sub get_tip			{ shift->{tip}				}
@@ -34,6 +35,7 @@ sub set_object			{ shift->{object}		= $_[1]	}
 sub set_attr			{ shift->{attr}			= $_[1]	}
 sub set_properties		{ shift->{properties}		= $_[1]	}
 sub set_label			{ shift->{label}		= $_[1]	}
+sub set_label_markup		{ shift->{label_markup}		= $_[1]	}
 sub set_label_group		{ shift->{label_group}		= $_[1]	}
 sub set_widget_group		{ shift->{widget_group}		= $_[1]	}
 sub set_tip			{ shift->{tip}			= $_[1]	}
@@ -58,6 +60,8 @@ sub get_parent			{ shift->{parent}			}
 sub get_gtk_widget		{ shift->{gtk_widget}			}
 sub get_gtk_parent_widget	{ $_[0]->{gtk_parent_widget} ||
 				  $_[0]->{gtk_widget}			}
+sub get_gtk_properties_widget	{ $_[0]->{gtk_properties_widget} ||
+				  $_[0]->{gtk_widget}			}
 sub get_gtk_label_widget	{ shift->{gtk_label_widget}		}
 sub get_layout_data		{ shift->{layout_data}			}
 sub get_in_update		{ shift->{in_update}			}
@@ -67,8 +71,9 @@ sub get_widget_activity		{ shift->{widget_activity}		}
 #------------------------------------------------------------------------
 sub set_form_factory		{ shift->{form_factory}		= $_[1]	}
 sub set_parent			{ shift->{parent}		= $_[1]	}
-sub set_gtk_parent_widget	{ shift->{gtk_parent_widget}	= $_[1]	}
 sub set_gtk_widget		{ shift->{gtk_widget}		= $_[1]	}
+sub set_gtk_parent_widget	{ shift->{gtk_parent_widget}	= $_[1]	}
+sub set_gtk_properties_widget	{ shift->{gtk_properties_widget}= $_[1]	}
 sub set_gtk_label_widget	{ shift->{gtk_label_widget}	= $_[1]	}
 sub set_layout_data		{ shift->{layout_data}		= $_[1]	}
 sub set_in_update		{ shift->{in_update}		= $_[1]	}
@@ -106,8 +111,8 @@ sub new {
 	@par{'widget_group','inactive','rules','expand','scrollbars'};
 	my  ($signal_connect, $width, $height, $customize_hook) =
 	@par{'signal_connect','width','height','customize_hook'};
-	my  ($changed_hook, $tip, $expand_h, $expand_v) =
-	@par{'changed_hook','tip','expand_h','expand_v'};
+	my  ($changed_hook, $tip, $expand_h, $expand_v, $label_markup) =
+	@par{'changed_hook','tip','expand_h','expand_v','label_markup'};
 
 	#-- Short notation: 'object.attr', so you may omit 'object'
 	if ( $attr =~ /^([^.]+)\.(.*)/ ) {
@@ -162,6 +167,7 @@ sub new {
 		properties	=> $properties,
 		label		=> $label,
 		label_group	=> $label_group,
+		label_markup	=> $label_markup,
 		widget_group    => $widget_group,
 		tip		=> $tip,
 		inactive	=> $inactive,
@@ -199,6 +205,7 @@ sub cleanup {
 	#-- e.g. from callback closures.
 	$self->set_gtk_widget(undef);
 	$self->set_gtk_parent_widget(undef);
+	$self->set_gtk_properties_widget(undef);
 	$self->set_gtk_label_widget(undef);
 
 	#-- Deregister the Widget name
@@ -208,6 +215,9 @@ sub cleanup {
 	#-- associated Context
 	$self->get_form_factory->get_context->deregister_widget ($self);
 	
+	#-- Destroy reference to the FormFactory
+	$self->set_form_factory(undef);
+
 	1;
 }
 
@@ -233,6 +243,9 @@ sub build {
 	$self->get_form_factory
 	     ->get_layouter
 	     ->build_widget($self);
+	
+	#-- Register this widget back to its FormFactory
+	$self->get_form_factory->register_widget($self);
 	
 	1;
 }
@@ -362,7 +375,7 @@ sub update_widget_activity {
 	if ( defined $self->get_widget_activity ) {
 		$active = $self->get_widget_activity;
 	}
-	
+
 	if ( $active ) {
 		#-- Make the widget visible resp. sensitive
 		if ( $self->get_inactive eq 'invisible' ) {
@@ -468,7 +481,9 @@ sub check_widget_value {
 	#-- if the Rule check failed.
 	if ( $message ) {
 		$self->restore_widget_value;
-		$self->show_error_message ($message);
+		$self->show_error_message (
+			message => $message,
+		);
 	}
 	
 	return 0;
@@ -492,12 +507,25 @@ sub widget_value_changed {
 		#-- widgets accordingly
 		$self->apply_changes;
 
+		#-- Call the Widget's change hook, if one was set
+		my $changed_hook = $self->get_changed_hook;
+		&$changed_hook($self->get_proxy->get_object, $self)
+			if $changed_hook;
+
 	} else {
 		#-- Changing the object normally triggers this
 		#-- change also in the widget (refer to
 		#-- Context->update_object_attr_widgets). We need 
 		#-- to prevent this.
 		$self->set_no_widget_update(1);
+
+		#-- Call the Widget's change hook, if one was set,
+		#-- BEFORE dependet widgets are updated. Probably
+		#-- the widget update depends on stuff in the
+		#-- changed_hook.
+		my $changed_hook = $self->get_changed_hook;
+		&$changed_hook($self->get_proxy->get_object, $self)
+			if $changed_hook;
 
 		#-- Now update all dependent widgets
 		$self->get_form_factory
@@ -509,10 +537,6 @@ sub widget_value_changed {
 		#-- Set widget into normal update state again
 		$self->set_no_widget_update(0);
 	}
-
-	#-- Call the Widget's change hook, if one was set
-	my $changed_hook = $self->get_changed_hook;
-	&$changed_hook($self->get_proxy->get_object) if $changed_hook;
 
 	1;
 }
@@ -539,22 +563,34 @@ sub apply_changes {
 }
 
 #========================================================================
+# Apply all changes incl. children
+# (here the samy as apply, overriden by Container)
+#========================================================================
+sub apply_changes_all { shift->apply_changes }
+
+#========================================================================
 # Show an error dialog
 #========================================================================
 sub show_error_message {
 	my $self = shift;
-	my ($message) = @_;
-	
+	my %par = @_;
+	my ($message, $type) = @par{'message','type'};
+
+	$type ||= "error";
+
+	$type = "GTK_MESSAGE_".uc($type);
+
 	my $dialog = Gtk2::MessageDialog->new (
-		undef,
+		$self->get_form_factory->get_form_factory_gtk_window,
 		'GTK_DIALOG_DESTROY_WITH_PARENT',
-		'GTK_MESSAGE_WARNING',
+		$type,
 		'GTK_BUTTONS_CLOSE',
 		$message,
 	);
 
 	$dialog->signal_connect( "response", sub { $dialog->destroy } );
-	$dialog->set_position ("center");
+	$dialog->set_position ('center');
+	$dialog->set ( modal => 1 );
 	$dialog->show;
 
 	1;	
@@ -576,6 +612,7 @@ Widgets
     object	   => Name of the associated application object,
     attr	   => Attribute represented by the Widget,
     label	   => Label text,
+    label_markup   => Boolean, indicating whether the label has markup,
     label_group    => Name of a Gtk2::SizeGroup for the label,
     widget_group   => Name of a Gtk2::SizeGroup for the widget,
     tip 	   => Tooltip text,
@@ -616,9 +653,11 @@ Gtk2::Ex::FormFactory framework.
   |    +--- Gtk2::Ex::FormFactory::Window
   +--- Gtk2::Ex::FormFactory::Button
   +--- Gtk2::Ex::FormFactory::CheckButton
+  +--- Gtk2::Ex::FormFactory::CheckButtonGroup
   +--- Gtk2::Ex::FormFactory::Combo
   +--- Gtk2::Ex::FormFactory::DialogButtons
   +--- Gtk2::Ex::FormFactory::Entry
+  +--- Gtk2::Ex::FormFactory::GtkWidget
   +--- Gtk2::Ex::FormFactory::HSeparator
   +--- Gtk2::Ex::FormFactory::Image
   +--- Gtk2::Ex::FormFactory::Label
@@ -627,6 +666,8 @@ Gtk2::Ex::FormFactory framework.
   +--- Gtk2::Ex::FormFactory::Popup
   +--- Gtk2::Ex::FormFactory::ProgressBar
   +--- Gtk2::Ex::FormFactory::RadioButton
+  +--- Gtk2::Ex::FormFactory::TextView
+  +--- Gtk2::Ex::FormFactory::Timestamp
   +--- Gtk2::Ex::FormFactory::ToggleButton
   +--- Gtk2::Ex::FormFactory::VSeparator
   +--- Gtk2::Ex::FormFactory::YesNo
@@ -671,9 +712,11 @@ this Widget was added. E.g. L<Gtk2::Ex::FormFactory::Form> implements
 a simple two column table with the labels in the left and the widgets
 in the right column.
 
-=item B<tip> = SCALAR [optional]
+=item B<label_markup> = BOOLEAN [optional]
 
-Optional text of the tooltip of this Widget.
+If this is set to a true value, the label will be rendered with
+a HTML like markup. Refer to the chapter "Pango Text Attribute Markup"
+of the official Gtk documentation for details about the known markup tags.
 
 =item B<label_group> = SCALAR [optional]
 
@@ -688,6 +731,10 @@ all Widgets for which you want to have the same label size.
 This is very similar to the B<label_group> attribute. The difference
 is that the size allocated by the Widget is under control of a
 Gtk2::SizeGroup.
+
+=item B<tip> = SCALAR [optional]
+
+Optional text of the tooltip of this Widget.
 
 =item B<properties> = HASHREF [optional]
 
@@ -824,10 +871,12 @@ In a FormFactory with the B<sync> flag set to TRUE this happens
 on each change. If the FormFactory is asynchronous it's called only
 when the user hit the Ok button.
 
-=item $widget->B<show_error_message> ( $message )
+=item $widget->B<show_error_message> ( message => $message, type => $type )
 
 Small convenience method which opens a Gtk+ error dialog with
-B<$message>.
+B<$message>. B<$type> defaults to 'error', but you can specify
+'info', 'warning' and 'question' as well to get corresponding
+dialogs.
 
 =item $proxy = $widget->B<get_proxy> ()
 
@@ -918,11 +967,20 @@ Gtk2 widget your implementation uses. The connected callback
 must call the $self->B<widget_value_changed>() method, so
 Gtk2::Ex::FormFactory can track all changes on the GUI.
 
-=item $self->B<get_gtk_signal_widget>() [optional]
+=item $gtk_widget = $self->B<get_gtk_signal_widget>() [optional]
 
 This defaults to $self->B<get_gtk_widget>() and returns the
 Gtk2 widget to which additional user specified signals
 should be connected.
+
+=item $gtk_widget = $self->B<get_gtk_properties_widget>() [optional]
+
+This defaults to $self->B<get_gtk_widget>() and returns the
+Gtk2 widget which should get the B<properties> defined for this
+Gtk2::Ex::FormFactory widget. This is useful if the actual GtkWidget
+is not the B<gtk_widget> (e.g. Gtk2::Ex::FormFactory::Window needs
+this, since it's finally a VBox, but you want to apply properties
+like default_width to the GtkWindow and not to the VBox).
 
 =item $widgets_lref = $self->B<get_gtk_tip_widgets>() [optional]
 

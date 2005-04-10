@@ -6,11 +6,30 @@ use base qw( Gtk2::Ex::FormFactory::Widget );
 
 sub get_type { "combo" }
 
+sub get_presets			{ shift->{presets}			}
+sub set_presets			{ shift->{presets}		= $_[1]	}
+
+sub new {
+	my $class = shift;
+	my %par = @_;
+	my ($presets) = $par{'presets'};
+	
+	my $self = $class->SUPER::new(@_);
+	
+	$self->set_presets($presets);
+	
+	return $self;
+}
+
+
 sub object_to_widget {
 	my $self = shift;
 
 	my $gtk_combo = $self->get_gtk_widget;
-	my $presets   = $self->get_proxy->get_attr_presets($self->get_attr, $self->get_name);
+	my $presets   = $self->get_presets ||
+			$self->get_proxy->get_attr_presets(
+				$self->get_attr, $self->get_name
+			);
 
 	$gtk_combo->set_popdown_strings(@{$presets})
 		if ref $presets eq 'ARRAY';
@@ -77,6 +96,7 @@ Gtk2::Ex::FormFactory::Combo - A Combo in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::Combo->new (
+    presets => List reference of preset values,
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -101,13 +121,25 @@ is the value of the associated application object attribute.
 
 =head1 ATTRIBUTES
 
-This module has no additional attributes over those derived
-from Gtk2::Ex::FormFactory::Widget.
+Attributes are handled through the common get_ATTR(), set_ATTR()
+style accessors, but they are mostly passed once to the object
+constructor and must not be altered after the associated FormFactory
+was built.
+
+=over 4
+
+=item B<presets> = LIST REF [optional]
+
+You may specify a static list of preset values for the Combo
+with this attribute. If B<preset> is not set, you need to
+implement the B<get_ATTR_presets> method as explained beyond.
+
+=back
 
 =head1 REQUIREMENTS FOR ASSOCIATED APPLICATION OBJECTS
 
 Application objects represented by a Gtk2::Ex::FormFactory::Combo
-must define additional methods. The naming of the methods listed
+may define additional methods. The naming of the methods listed
 beyond uses the standard B<get_> prefix for the attribute read
 accessor. B<ATTR> needs to be replaced by the actual name of
 the attribute associated with the widget.
@@ -117,7 +149,8 @@ the attribute associated with the widget.
 =item B<get_ATTR_presets>
 
 This method must return a reference to an array containing the
-presets for this Combo box.
+presets for this Combo box, but must be implemented only if you
+didn't specify a static presets list using the B<presets> attribute.
 
 =back
 

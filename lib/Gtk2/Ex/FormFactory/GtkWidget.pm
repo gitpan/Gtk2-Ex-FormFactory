@@ -1,29 +1,33 @@
-package Gtk2::Ex::FormFactory::Button;
+package Gtk2::Ex::FormFactory::GtkWidget;
 
 use strict;
 
 use base qw( Gtk2::Ex::FormFactory::Widget );
 
-sub get_type 	{ "button" 	}
-sub has_label	{ 1		}
+sub get_custom_gtk_widget	{ shift->{custom_gtk_widget}		}
+sub set_custom_gtk_widget	{ shift->{custom_gtk_widget}	= $_[1]	}
 
-sub get_clicked_hook		{ shift->{clicked_hook}			}
-sub get_stock			{ shift->{stock}			}
-
-sub set_clicked_hook		{ shift->{clicked_hook}		= $_[1]	}
-sub set_stock			{ shift->{stock}		= $_[1]	}
+sub get_type { "gtk_widget" }
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my ($stock, $clicked_hook) = @par{'stock','clicked_hook'};
+	my ($custom_gtk_widget) = $par{'custom_gtk_widget'};
 
 	my $self = $class->SUPER::new(@_);
-
-	$self->set_stock($stock);
-	$self->set_clicked_hook($clicked_hook);
+	
+	$self->set_custom_gtk_widget($custom_gtk_widget);
 	
 	return $self;
+}
+
+sub cleanup {
+	my $self = shift;
+	
+	$self->SUPER::cleanup(@_);
+	$self->set_custom_gtk_widget(undef);
+
+	1;
 }
 
 1;
@@ -32,28 +36,33 @@ __END__
 
 =head1 NAME
 
-Gtk2::Ex::FormFactory::Button - A Button in a FormFactory framework
+Gtk2::Ex::FormFactory::GtkWidget - Wrap arbitrary Gtk widgets
 
 =head1 SYNOPSIS
 
-  Gtk2::Ex::FormFactory::Button->new (
-    clicked_hook => Callback CODEREF / Closure
-    stock        => Name of a stock item for this button,
+  Gtk2::Ex::FormFactory::GtkWidget->new (
+    custom_gtk_widget => Gtk::Widget,
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
 
 =head1 DESCRIPTION
 
-This module implements a Button in a Gtk2::Ex::FormFactory framework.
-No application object attribute is associated with the button.
+With this module you can add arbitrary Gtk widgets to a FormFactory.
+They're simply displayed, but their state isn't managed by
+Gtk2::Ex::FormFactory, because no details are known about the widget.
+
+If you need the full functionality for a custom Gtk widget you need
+to implement your own Gtk2::Ex::FormFactory::Widget for it. Refer to
+the documentation of Gtk2::Ex::FormFactory::Widget for details
+about implementing your own FormFactory widgets.
 
 =head1 OBJECT HIERARCHY
 
   Gtk2::Ex::FormFactory::Intro
 
   Gtk2::Ex::FormFactory::Widget
-  +--- Gtk2::Ex::FormFactory::Button
+  +--- Gtk2::Ex::FormFactory::GtkWidget
 
   Gtk2::Ex::FormFactory::Layout
   Gtk2::Ex::FormFactory::Rules
@@ -69,16 +78,9 @@ was built.
 
 =over 4
 
-=item B<clicked_hook> = CODEREF [optional]
+=item B<custom_gtk_widget> = Gtk::Widget [mandatory]
 
-This is for convenience and connects the CODEREF to the clicked
-signal of the button.
-
-=item B<stock> = SCALAR [optional]
-
-You may specify the name of a stock item here, which should be
-added to the button, e.g. 'gtk-edit' for the standard Gtk Edit
-stock item.
+This is a Gtk::Widget to be displays inside a FormFactory.
 
 =back
 

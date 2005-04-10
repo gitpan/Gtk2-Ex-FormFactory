@@ -70,7 +70,7 @@ sub build {
 		$self->get_name;
 
 	foreach my $object ( keys %gtk_menu_items_by_object ) {
-		$context->get_widgets_by_object_href
+		$context->get_widgets_by_object
 		     ->{$object}
 		     ->{$widget_full_name} = $self;
 
@@ -90,7 +90,7 @@ sub DESTROY {
 
 	foreach my $object ( keys %{$self->get_gtk_menu_items_by_object} ) {
 		delete
-		    $context->get_widgets_by_object_href
+		    $context->get_widgets_by_object
 		    	    ->{$object}
 			    ->{$widget_full_name};
 	}

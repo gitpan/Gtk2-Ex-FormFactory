@@ -1,6 +1,55 @@
-$Id: Changes,v 1.4 2004/12/27 13:52:48 joern Exp $
+$Id: Changes,v 1.5 2005/04/10 21:28:59 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.53 Sun Apr 10, 2005, joern
+	Features:
+	- $ff->get_widget($name) added.
+	- $context->remove_object($name) added.
+	- DialogButtons: control the set of buttons displayed.
+
+	Bugfixes:
+	- Timestamp: placeholders were mixed up, so the calculated
+	  timestamp was nonsense for some values.
+	- Widget's changed_hook wasn't called at the appropriate
+	  time for some widgets.
+	
+0.52 Sun Feb 06, 2005, joern
+	Bugfixes:
+	- Popup: didn't consider custom attribute activity conditions
+	  in all cases.
+	- Container: apply_changes() didn't recurse correctly into
+	  all children
+
+	Features:
+	- New widgets:
+	  - CheckButtonGroup: a table of check buttons representing
+	    a multiple selection of predefined values.
+	  - GtkWidget: support arbitrary Gtk widgets which aren't worth
+	    an own Gtk2::Ex::FormFactory module.
+	  - TextView: a Gtk2::TextView
+	  - Timestamp: Entries to enter correct timestamps down to minute
+	    level, while calculating internally with unix timestamps.
+	- FormFactory: added parent_ff attribute
+	- FormFactory: added hide parameter to open() and show() method
+	- FormFactory: added open_confirm_window() method
+	- FormFactory: added get_image_path() method
+	- Button: added stock attribute
+	- Combo: added presets attribute
+	- DialogButtons: buttons may now be controlled with the object
+	  attribute's value
+	- HBox/VBox: added no_frame attribute
+	- List: added update_selection_only attribute
+	- Proxy: get_attr/set_attr consider object.attr notation
+	  accordingly and switch to the proxy of the correspondent
+	  object for convenience.
+	- Table: warn if table layout string contains tab characters
+	- Widget: added gtk_properties_widget
+	- Widget: added label_markup attribute
+	- Widget: added 'type' option to show_error_message() and
+	  error windows are now modal.
+	  => WARNING: incompatible API change!
+	- Window: added closed_hook attribute
 
 0.51 Mon Dec 27, 2004, joern
 	Bugfixes:

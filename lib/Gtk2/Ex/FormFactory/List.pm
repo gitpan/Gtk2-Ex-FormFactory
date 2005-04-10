@@ -8,6 +8,7 @@ use base qw( Gtk2::Ex::FormFactory::Widget );
 sub get_type { "list" }
 
 sub get_attr_select		{ shift->{attr_select}			}
+sub get_update_selection_only	{ shift->{update_selection_only}	}
 sub get_columns			{ shift->{columns}			}
 sub get_types			{ shift->{types}			}
 sub get_editable		{ shift->{editable}			}
@@ -16,6 +17,7 @@ sub get_is_editable		{ shift->{is_editable}			}
 sub get_selection_backup	{ shift->{selection_backup}		}
 
 sub set_attr_select		{ shift->{attr_select}		= $_[1]	}
+sub set_update_selection_only	{ shift->{update_selection_only}= $_[1]	}
 sub set_columns			{ shift->{columns}		= $_[1]	}
 sub set_types			{ shift->{types}		= $_[1]	}
 sub set_editable		{ shift->{editable}		= $_[1]	}
@@ -28,20 +30,21 @@ sub has_additional_attrs	{ [ "select" ] 				}
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my  ($attr_select, $columns, $types, $editable, $selection_mode, ) =
-	@par{'attr_select','columns','types','editable','selection_mode'};
+	my  ($attr_select, $columns, $types, $editable,) =
+	@par{'attr_select','columns','types','editable'};
+	my  ($update_selection_only, $selection_mode) =
+	@par{'update_selection_only','selection_mode'};
 
 	croak "'columns' attribute is mandatory" unless $columns;
 
 	my $self = $class->SUPER::new(@_);
-	
-	$attr_select =~ s/^[^.]+\.//;
 	
 	$self->set_attr_select	  ($attr_select);
 	$self->set_columns  	  ($columns);
 	$self->set_types    	  ($types);
 	$self->set_editable 	  ($editable);
 	$self->set_selection_mode ($selection_mode);
+	$self->set_update_selection_only ($update_selection_only);
 
 	my $is_editable = 0;
 	map { $is_editable = 1 if $_ } @{$editable};
@@ -54,13 +57,29 @@ sub new {
 sub object_to_widget {
 	my $self = shift;
 
-	$self->get_gtk_widget->set_data_array($self->get_object_value);
-
+	if ( not $self->get_update_selection_only ) {
+		$self->get_gtk_widget
+		     ->set_data_array($self->get_object_value||[]);
+	} else {
+		$self->get_gtk_widget
+		     ->set_data_array($self->get_object_value||[])
+			if @{$self->get_gtk_widget->{data}} == 0;
+	}
 	if ( $self->get_attr_select ) {
 		my $idx = $self->get_proxy->get_attr (
 			$self->get_attr_select
 		);
-		$self->get_gtk_widget->select(@{$idx});
+		my $gtk_simple_list = $self->get_gtk_widget;
+		if ( defined $idx and @{$idx} and @{$self->get_gtk_widget->{data}} != 0 ) {
+			$gtk_simple_list->select(@{$idx});
+			$gtk_simple_list->scroll_to_cell(
+				Gtk2::TreePath->new_from_string($idx->[0]),
+				($gtk_simple_list->get_columns)[0],
+				0, 0
+			);
+		} else {
+			$gtk_simple_list->get_selection->unselect_all;
+		}
 	}
 
 	1;
@@ -116,7 +135,7 @@ sub restore_widget_value {
 
 	if ( $self->get_is_editable ) {
 		$self->get_gtk_widget
-		     ->set_data_array($self->get_backup_widget_value);
+		     ->set_data_array($self->get_backup_widget_value||[]);
 	}
 
 	if ( $self->get_attr_select ) {
@@ -166,6 +185,9 @@ Gtk2::Ex::FormFactory::List - A List in a FormFactory framework
     types          => Types of the list columns,
     editable       => Is content editable?,
     selection_mode => Selection mode of this list,
+    update_selection_only => Boolean, whether updates should only
+    			     change the selection, not the list
+			     of values,
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -234,6 +256,13 @@ the associated application object attribute.
 You may specify a selection mode for the list. Please refer to
 the Gtk+ documentation of GtkSelectionMode for details about
 the possible selection modes.
+
+=item B<update_selection_only> = BOOL [optional]
+
+If you know the values of your list don't change at runtime, and
+only the actual selection is important, you should set this to
+a true value, because updating will be significantly faster,
+since only the actual selection is affected.
 
 =back
 

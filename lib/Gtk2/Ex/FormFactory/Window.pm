@@ -6,6 +6,21 @@ use base qw( Gtk2::Ex::FormFactory::Container );
 
 sub get_type { "window" }
 
+sub get_closed_hook		{ shift->{closed_hook}			}
+sub set_closed_hook		{ shift->{closed_hook}		= $_[1]	}
+
+sub new {
+	my $class = shift;
+	my %par = @_;
+	my ($closed_hook) = $par{'closed_hook'};
+
+	my $self = $class->SUPER::new(@_);
+	
+	$self->set_closed_hook($closed_hook);
+	
+	return $self;
+}
+
 1;
 
 __END__
@@ -17,6 +32,7 @@ Gtk2::Ex::FormFactory::Window - A Window in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::Window->new (
+    closed_hook => Code reference to be called on window close,
     ...
     Gtk2::Ex::FormFactory::Container attributes
     Gtk2::Ex::FormFactory::Widget attributes
@@ -49,8 +65,20 @@ is closed automatically when the window gets destroyed.
 
 =head1 ATTRIBUTES
 
-This module has no additional attributes over those derived
-from Gtk2::Ex::FormFactory::Container.
+Attributes are handled through the common get_ATTR(), set_ATTR()
+style accessors, but they are mostly passed once to the object
+constructor and must not be altered after the associated FormFactory
+was built.
+
+=over 4
+
+=item B<closed_hook> = CODEREF [optional]
+
+This code reference is called, when the window gets destroyed, e.g.
+because the user closes the window using the window manager's close
+button, or the program calls GtkWindow->destroy directly.
+
+=back
 
 =head1 AUTHORS
 

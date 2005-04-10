@@ -108,7 +108,7 @@ sub apply_changes_all {
 	my $self = shift;
 	
 	$self->SUPER::apply_changes(@_);
-	$_->apply_changes for @{$self->get_content};
+	$_->apply_changes_all for @{$self->get_content};
 	
 	1;
 }

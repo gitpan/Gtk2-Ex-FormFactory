@@ -58,6 +58,11 @@ sub get_attr {
 	my $self = shift;
 	my ($attr_name) = @_;
 	
+	if ( $attr_name =~ /^([^.]+)\.(.*)$/ ) {
+		$self      = $self->get_context->get_proxy($1);
+		$attr_name = $2;
+	}
+
 	my $method   = $self->get_get_prefix.$attr_name;
 	my $object   = $self->get_object;
 	my $accessor = $self->get_attr_accessors_href->{$method};
@@ -69,6 +74,11 @@ sub get_attr {
 sub set_attr {
 	my $self = shift;
 	my ($attr_name, $attr_value) = @_;
+
+	if ( $attr_name =~ /^([^.]+)\.(.*)$/ ) {
+		$self      = $self->get_context->get_proxy($1);
+		$attr_name = $2;
+	}
 
 	my $set_prefix = $self->get_set_prefix;
 	my $object     = $self->get_object;
@@ -300,10 +310,17 @@ Widgets on the GUI are updated accordingly.
 
 Returns the application object's attribute B<$attr> of this Proxy.
 
+If $attr has the form "object.attr" the attribute of the
+correspondent object is retreived, instead of the object associated
+with this proxy.
+
 =item $proxy->B<set_attr> ($attr => $value)
 
 Changes the application object's attribute B<$attr> to B<$value> and
 updates all dependend Widgets on the GUI accordingly.
+
+If $attr has the form "object.attr" the correspondent object
+will be updated, instead of the object associated with this proxy.
 
 =item $proxy->B<set_attrs> ( { $attr => $value, ... } )
 

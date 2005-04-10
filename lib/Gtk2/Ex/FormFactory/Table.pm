@@ -24,7 +24,11 @@ sub new {
 	my $self = $class->SUPER::new(@_);
 	
 	$layout =~ s/^\s+//m;
-	$layout =~ s/\s+\n$/\n/m;
+	$layout =~ s/\s+$//m;
+	$layout .= "\n";
+
+	warn "Layout of table ".$self->get_name." contains tab characters"
+		if $layout =~ /\t/;
 
 	$self->set_layout($layout);
 
@@ -268,7 +272,7 @@ sub get_expansion {
 	return ["fill"]           if $type =~ /[-|+=]/;
 	return ["expand"]         if $type eq '~';
 	return ["fill","expand"]  if $type =~ /[>^]/;
-	
+	return [];
 }
 
 1;

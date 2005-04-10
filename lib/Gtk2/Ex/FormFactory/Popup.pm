@@ -48,7 +48,9 @@ sub object_to_widget {
 	if ( $i == 0 ) {
 		$self->set_widget_activity(0);
 	} else {
-		$self->set_widget_activity(1);
+		$self->set_widget_activity(1)
+			if $self->get_proxy($self->get_object)
+			        ->get_attr_activity($self->get_attr);
 	}
 
 	$gtk_popup->set_history ($history);
@@ -64,6 +66,11 @@ sub widget_to_object {
 	);
 	
 	1;
+}
+
+sub get_widget_value {
+	my $self = shift;
+	return $self->get_gtk_widget->get_menu->get_active->{value};
 }
 
 sub empty_widget {

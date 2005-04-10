@@ -5,10 +5,11 @@ use Carp;
 
 use Gtk2::Ex::FormFactory::Proxy;
 
-sub get_proxies_by_name_href	{ shift->{proxies_by_name_href}		}
-sub get_widgets_by_attr_href	{ shift->{widgets_by_attr_href}		}
-sub get_widgets_by_object_href	{ shift->{widgets_by_object_href}	}
+sub get_proxies_by_name		{ shift->{proxies_by_name}		}
+sub get_widgets_by_attr		{ shift->{widgets_by_attr}		}
+sub get_widgets_by_object	{ shift->{widgets_by_object}		}
 sub get_depend_trigger_href	{ shift->{depend_trigger_href}		}
+sub get_update_hooks_by_object	{ shift->{update_hooks_by_object}	}
 
 sub get_default_set_prefix	{ shift->{default_set_prefix}		}
 sub get_default_get_prefix	{ shift->{default_get_prefix}		}
@@ -28,11 +29,11 @@ sub new {
 	my $self = bless {
 		default_set_prefix	=> $default_set_prefix,
 		default_get_prefix	=> $default_get_prefix,
-		proxies_by_name_href	=> {},
-		widgets_by_attr_href	=> {},
-		widgets_by_object_href	=> {},
+		proxies_by_name		=> {},
+		widgets_by_attr		=> {},
+		widgets_by_object	=> {},
+		update_hooks_by_object  => {},
 		depend_trigger_href	=> {},
-		no_widget_updates	=> 0,
 	}, $class;
 	
 	$self->add_object(
@@ -48,8 +49,8 @@ sub add_object {
 	my %par = @_;
 	my  ($name, $object, $set_prefix, $get_prefix, $attr_activity_href) =
 	@par{'name','object','set_prefix','get_prefix','attr_activity_href'};
-	my  ($attr_depends_href, $attr_accessors_href) =
-	@par{'attr_depends_href','attr_accessors_href'};
+	my  ($attr_depends_href, $attr_accessors_href, $update_hook) =
+	@par{'attr_depends_href','attr_accessors_href','update_hook'};
 
 	$set_prefix ||= $self->get_default_set_prefix;
 	$get_prefix ||= $self->get_default_get_prefix;
@@ -68,9 +69,15 @@ sub add_object {
 		}
 	}
 
-	my $proxies_by_name_href = $self->get_proxies_by_name_href;
+	my $proxies_by_name = $self->get_proxies_by_name;
 
-	return $proxies_by_name_href->{$name} = Gtk2::Ex::FormFactory::Proxy->new (
+	die "Object with name '$name' already registered to this context"
+		if $proxies_by_name->{$name};
+
+	$self->get_update_hooks_by_object->{$name} = $update_hook
+		if $update_hook;
+
+	return $proxies_by_name->{$name} = Gtk2::Ex::FormFactory::Proxy->new (
 		    context       	=> $self,
 		    name          	=> $name,
 		    object        	=> $object,
@@ -79,6 +86,20 @@ sub add_object {
 		    attr_activity_href	=> $attr_activity_href,
 		    attr_accessors_href	=> $attr_accessors_href,
 	);
+}
+
+sub remove_object {
+	my $self = shift;
+	my ($name) = @_;
+
+	my $proxies_by_name = $self->get_proxies_by_name;
+	
+	die "Object with name '$name' not registered to this context"
+		unless $proxies_by_name->{$name};
+
+	delete $proxies_by_name->{$name};
+
+	1;
 }
 
 sub register_widget {
@@ -98,7 +119,7 @@ sub register_widget {
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "REGISTER: $object_attr => $widget_full_name\n";
 
-	$self->get_widgets_by_attr_href
+	$self->get_widgets_by_attr
 	     ->{$object_attr}
 	     ->{$widget_full_name} = $widget;
 	
@@ -108,13 +129,13 @@ sub register_widget {
 		foreach my $add_attr ( @{$add_attrs} ) {
 			my $get_attr_name_method = "get_attr_$add_attr";
 			my $attr = $widget->$get_attr_name_method();
-			$self->get_widgets_by_attr_href
+			$self->get_widgets_by_attr
 			     ->{"$object.$attr"}
 			     ->{$widget_full_name} = $widget;
 		}
 	}	
 	
-	$self->get_widgets_by_object_href
+	$self->get_widgets_by_object
 	     ->{$widget->get_object}
 	     ->{$widget_full_name} = $widget;
 
@@ -143,11 +164,11 @@ sub deregister_widget {
 	    print "DEREGISTER: $object_attr => $widget_full_name\n";
 
 	warn "Widget not registered ($object_attr => $widget_full_name)"
-		unless $self->get_widgets_by_attr_href
+		unless $self->get_widgets_by_attr
 			    ->{$object_attr}
 			    ->{$widget_full_name};
 
-	delete $self->get_widgets_by_attr_href
+	delete $self->get_widgets_by_attr
 		    ->{$object_attr}
 		    ->{$widget_full_name};
 	
@@ -157,13 +178,13 @@ sub deregister_widget {
 		foreach my $add_attr ( @{$add_attrs} ) {
 			my $get_attr_name_method = "get_attr_$add_attr";
 			my $attr = $widget->$get_attr_name_method();
-			delete $self->get_widgets_by_attr_href
+			delete $self->get_widgets_by_attr
 				    ->{"$object.$attr"}
 				    ->{$widget_full_name};
 		}
 	}	
 
-	delete $self->get_widgets_by_object_href
+	delete $self->get_widgets_by_object
 		    ->{$widget->get_object}
 		    ->{$widget_full_name};
 
@@ -174,7 +195,7 @@ sub get_proxy {
 	my $self = shift;
 	my ($name) = @_;
 
-	my $proxy = $self->get_proxies_by_name_href->{$name};
+	my $proxy = $self->get_proxies_by_name->{$name};
 
 	croak "Object '$name' not added to this context"
 		unless $proxy;
@@ -186,7 +207,7 @@ sub get_object {
 	my $self = shift;
 	my ($name) = @_;
 
-	my $proxy = $self->get_proxies_by_name_href->{$name};
+	my $proxy = $self->get_proxies_by_name->{$name};
 
 	croak "Object '$name' not added to this context"
 		unless $proxy;
@@ -198,7 +219,7 @@ sub set_object {
 	my $self = shift;
 	my ($name, $object) = @_;
 
-	my $proxy = $self->get_proxies_by_name_href->{$name};
+	my $proxy = $self->get_proxies_by_name->{$name};
 
 	croak "Object $name not added to this context"
 		unless $proxy;
@@ -215,13 +236,13 @@ sub update_object_attr_widgets {
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "update_object_attr_widgets($object, $attr)\n";
 
-	my $widgets_by_attr_href = $self->get_widgets_by_attr_href;
+	my $widgets_by_attr      = $self->get_widgets_by_attr;
 	my $depend_trigger_href  = $self->get_depend_trigger_href;
 
-	$_->update for values %{$widgets_by_attr_href->{"$object.$attr"}};
+	$_->update for values %{$widgets_by_attr->{"$object.$attr"}};
 
 	foreach my $update_object_attr ( keys %{$depend_trigger_href->{"$object.$attr"}} ) {
-		$_->update for values %{$widgets_by_attr_href->{$update_object_attr}};
+		$_->update for values %{$widgets_by_attr->{$update_object_attr}};
 	}
 
 	1;
@@ -237,9 +258,12 @@ sub update_object_widgets {
 	my $object       = $self->get_object($name);
 	my $change_state = defined $object ? '' : 'empty,inactive';
 
-	my $widgets_by_object_href = $self->get_widgets_by_object_href;
+	my $widgets_by_object = $self->get_widgets_by_object;
 	$_->update($change_state)
-		for values %{$widgets_by_object_href->{$name}};
+		for values %{$widgets_by_object->{$name}};
+
+	my $update_hook = $self->get_update_hooks_by_object->{$name};
+	&$update_hook($object) if $update_hook;
 
 	1;
 }
@@ -253,10 +277,10 @@ sub update_object_widgets_activity {
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "update_object_activity($name)\n";
 
-	my $widgets_by_object_href = $self->get_widgets_by_object_href;
+	my $widgets_by_object = $self->get_widgets_by_object;
 
 	$_->update($activity)
-		for values %{$widgets_by_object_href->{$name}};
+		for values %{$widgets_by_object->{$name}};
 
 	1;
 }
@@ -495,6 +519,10 @@ you can use a list reference:
   },
 
 =back
+
+=item $context->B<remove_object> ( $name )
+
+Remove the object $name from this context.
 
 =item $app_object = $context->B<get_object> ( $name )
 

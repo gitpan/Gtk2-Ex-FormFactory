@@ -37,7 +37,7 @@ main: {
 	);
 
 	my $gui_state = My::GuiState->new(
-	    selected_page => 4,
+	    selected_page => 3,
 	);
 
 	my $context = Gtk2::Ex::FormFactory::Context->new;
@@ -156,6 +156,7 @@ main: {
 			    expand  => 1,
 			    content => [
 			      Gtk2::Ex::FormFactory::List->new (
+			      	name	    => "discs",
 			        expand      => 1,
 				attr        => "database.discs",
 				attr_select => "database.selected_discs_idx",

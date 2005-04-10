@@ -31,7 +31,7 @@ sub build_widget {
 	}
 
 	if ( $widget->get_properties ) {
-		$widget->get_gtk_widget->set (
+		$widget->get_gtk_properties_widget->set (
 		  %{$widget->get_properties}
 		);
 	}
@@ -118,9 +118,15 @@ sub add_widget_to_container {
 
 sub create_label_widget {
 	my $self = shift;
-	my ($label_text) = @_;
+	my ($widget) = @_;
 	
-	my $gtk_label = Gtk2::Label->new($label_text);
+	my $gtk_label;
+	if ( $widget->get_label_markup ) {
+		$gtk_label = Gtk2::Label->new;
+		$gtk_label->set_markup($widget->get_label);
+	} else {
+		$gtk_label = Gtk2::Label->new($widget->get_label);
+	}
 	$gtk_label->set ( yalign => 0.5, xalign => 0 );
 
 	return $gtk_label;
@@ -153,15 +159,36 @@ sub build_window {
 	
 	$window->set_gtk_widget($vbox);
 	$window->set_gtk_parent_widget($gtk_window);
+	$window->set_gtk_properties_widget($gtk_window);
+	
+	my $closed_hook = $window->get_closed_hook;
+
+	if ( $closed_hook ) {
+		$gtk_window->signal_connect (
+			destroy => $closed_hook
+		);
+	}
 	
 	if ( $window->get_parent->isa("Gtk2::Ex::FormFactory") ) {
 		$gtk_window->signal_connect (
 			destroy => sub {
-				$window->get_form_factory->close;
+				#-- Close FormFactory. If no FormFactory
+				#-- is set, cleanup() was already called.
+				$window->get_form_factory->close
+					if $window->get_form_factory;
+				1;
 			},
 		);
 	}
-	
+
+	if ( $window->get_form_factory->get_parent_ff ) {
+		my $gtk_parent_window =
+			$window->get_form_factory
+			       ->get_parent_ff
+			       ->get_form_factory_gtk_window;
+		$gtk_window->set_transient_for($gtk_parent_window);
+	}
+
 	1;
 }
 
@@ -246,8 +273,8 @@ sub build_table {
 		my $gtk_label = $self->create_bold_label_widget($title);
 		$gtk_frame = Gtk2::Frame->new;
 		$gtk_frame->set_label_widget($gtk_label);
-		$gtk_frame->add($table);
-		$table->set ( border_width => 5 );
+		$gtk_frame->add($gtk_table);
+		$gtk_table->set ( border_width => 5 );
 	}
 
 	$table->set_gtk_widget($gtk_table);
@@ -274,7 +301,7 @@ sub build_vbox {
 	my $frame;
 	my $gtk_vbox = Gtk2::VBox->new($vbox->get_homogenous,($vbox->get_spacing||5));
 	
-	if ( $title ) {
+	if ( $title and not $vbox->get_no_frame ) {
 		my $gtk_label = $self->create_bold_label_widget($title);
 		$frame = Gtk2::Frame->new;
 		$frame->set_label_widget($gtk_label);
@@ -297,7 +324,7 @@ sub build_hbox {
 	my $frame;
 	my $gtk_hbox = Gtk2::HBox->new($hbox->get_homogenous,($hbox->get_spacing||5));
 	
-	if ( $title ) {
+	if ( $title and not $hbox->get_no_frame ) {
 		my $gtk_label = $self->create_bold_label_widget($title);
 		$frame = Gtk2::Frame->new;
 		$frame->set_label_widget($gtk_label);
@@ -451,8 +478,25 @@ sub build_button {
 	my $self = shift;
 	my ($button) = @_;
 
-	my $gtk_button = Gtk2::Button->new($button->get_label);
+	my $stock = $button->get_stock;
+	my $label = $button->get_label;
+
+	my $gtk_button;
 	
+	if ( $stock and $label ) {
+		my $hbox = Gtk2::HBox->new;
+		my $image = Gtk2::Image->new_from_stock($stock,"button");
+		my $label = Gtk2::Label->new($label);
+		$hbox->pack_start($image, 0, 1, 0);
+		$hbox->pack_start($label, 0, 1, 0);
+		$gtk_button = Gtk2::Button->new;
+		$gtk_button->add($hbox);
+	} elsif ( $stock and not $label ) {
+		$gtk_button = Gtk2::Button->new_from_stock($stock);
+	} else {
+		$gtk_button = Gtk2::Button->new($label);
+	}
+
 	$button->set_gtk_widget($gtk_button);
 	
 	my $clicked_hook = $button->get_clicked_hook;
@@ -543,7 +587,7 @@ sub build_image {
 	} else {
 		$image->set_gtk_parent_widget($gtk_event_box);
 	}
-	
+
 	my $update_timeout;
 	if ( $image->get_scale_to_fit or
 	     $image->get_max_width or
@@ -582,61 +626,155 @@ sub build_dialog_buttons {
 	  spacing      => 10,
 	);
 
-	if ( not $dialog_buttons->get_form_factory->get_sync ) {
-		$button = Gtk2::Button->new_from_stock("gtk-cancel");
-		$button->show;
-		$button_box->pack_start($button, 0, 1, 0);
-		$button->signal_connect (
-		    clicked => sub {
-		        my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
-		        my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
-			my $default_handler = 1;
-			$default_handler = &$clicked_hook_before("cancel")
-				if $clicked_hook_before;
-			return if not $default_handler;
-		    	$dialog_buttons->get_form_factory->cancel;
-			&$clicked_hook_after("cancel")
-				if $clicked_hook_after;
-		    },
-		);
+	my $buttons = $dialog_buttons->get_buttons;
 
-		$button = Gtk2::Button->new_from_stock("gtk-apply");
-		$button->show;
-		$button_box->pack_start($button, 0, 1, 0);
-		$button->signal_connect (
-		    clicked => sub {
-		        my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
-		        my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
-			my $default_handler = 1;
-			$default_handler = &$clicked_hook_before("apply")
-				if $clicked_hook_before;
-			return if not $default_handler;
-		    	$dialog_buttons->get_form_factory->apply;
-			&$clicked_hook_after("apply")
-				if $clicked_hook_after;
-		    },
-		);
+	if ( not $dialog_buttons->get_form_factory->get_sync ) {
+		if ( $buttons->{cancel} ) {
+		    $button = Gtk2::Button->new_from_stock("gtk-cancel");
+		    $button->show;
+		    $button_box->pack_start($button, 0, 1, 0);
+		    $button->signal_connect (
+			clicked => sub {
+		            my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
+		            my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
+			    my $default_handler = 1;
+			    $default_handler = &$clicked_hook_before("cancel")
+				    if $clicked_hook_before;
+			    return if not $default_handler;
+		    	    $dialog_buttons->get_form_factory->cancel;
+			    &$clicked_hook_after("cancel")
+				    if $clicked_hook_after;
+			},
+		    );
+		    $dialog_buttons->set_gtk_cancel_button($button);
+		}
+
+		if ( $buttons->{apply} ) {
+		    $button = Gtk2::Button->new_from_stock("gtk-apply");
+		    $button->show;
+		    $button_box->pack_start($button, 0, 1, 0);
+		    $button->signal_connect (
+			clicked => sub {
+		            my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
+		            my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
+			    my $default_handler = 1;
+			    $default_handler = &$clicked_hook_before("apply")
+				    if $clicked_hook_before;
+			    return if not $default_handler;
+		    	    $dialog_buttons->get_form_factory->apply;
+			    &$clicked_hook_after("apply")
+				    if $clicked_hook_after;
+			},
+		    );
+		    $dialog_buttons->set_gtk_apply_button($button);
+		}
 	}
 
-	$button = Gtk2::Button->new_from_stock("gtk-ok");
-	$button->show;
-	$button_box->pack_start($button, 0, 1, 0);
-	$button->signal_connect (
-	    clicked => sub {
-		my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
-		my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
-		my $default_handler = 1;
-		$default_handler = &$clicked_hook_before("ok")
-			if $clicked_hook_before;
-		return if not $default_handler;
-		$dialog_buttons->get_form_factory->ok;
-		&$clicked_hook_after("ok")
-			if $clicked_hook_after;
-	    },
-	);
+	if ( $buttons->{ok} ) {
+	    $button = Gtk2::Button->new_from_stock("gtk-ok");
+	    $button->show;
+	    $button_box->pack_start($button, 0, 1, 0);
+	    $button->signal_connect (
+		clicked => sub {
+		    my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
+		    my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
+		    my $default_handler = 1;
+		    $default_handler = &$clicked_hook_before("ok")
+			    if $clicked_hook_before;
+		    return if not $default_handler;
+		    $dialog_buttons->get_form_factory->ok;
+		    &$clicked_hook_after("ok")
+			    if $clicked_hook_after;
+		},
+	    );
+	    $dialog_buttons->set_gtk_ok_button($button);
+	}
 
 	$dialog_buttons->set_gtk_widget($button_box);
 
+	1;
+}
+
+sub build_timestamp {
+	my $self = shift;
+	my ($timestamp) = @_;
+	
+	my $hbox  = Gtk2::HBox->new;
+
+	my $mday  = Gtk2::Entry->new;
+	my $mon   = Gtk2::Entry->new;
+	my $year  = Gtk2::Entry->new;
+	my $hour  = Gtk2::Entry->new;
+	my $min   = Gtk2::Entry->new;
+
+	$mday->set ( width_chars => 2, max_length  => 2 );
+	$mon->set  ( width_chars => 2, max_length  => 2 );
+	$year->set ( width_chars => 4, max_length  => 4 );
+	$hour->set ( width_chars => 2, max_length  => 2 );
+	$min->set  ( width_chars => 2, max_length  => 2 );
+
+	$timestamp->set_gtk_widget($hbox);
+	$timestamp->set_gtk_mday_widget($mday);
+	$timestamp->set_gtk_mon_widget($mon);
+	$timestamp->set_gtk_year_widget($year);
+	$timestamp->set_gtk_hour_widget($hour);
+	$timestamp->set_gtk_min_widget($min);
+
+	my $format = $timestamp->get_format;
+
+	while ( $format =~ /([^%]*)%(.)/g ) {
+		my $text = $1;
+		my $dfmt = $2;
+
+		if ( $text ) {
+			$hbox->pack_start(Gtk2::Label->new($text), 0, 1, 0);
+		}
+		if ( $dfmt eq 'd' ) {
+			$hbox->pack_start ($mday, 0, 1, 0);
+		} elsif ( $dfmt eq 'm' ) {
+			$hbox->pack_start ($mon,  0, 1, 0);
+		} elsif ( $dfmt eq 'Y' ) {
+			$hbox->pack_start ($year, 0, 1, 0);
+		} elsif ( $dfmt eq 'k' ) {
+			$hbox->pack_start ($hour, 0, 1, 0);
+		} elsif ( $dfmt eq 'M' ) {
+			$hbox->pack_start ($min,  0, 1, 0);
+		} else {
+			warn "Unknown timestamp format \%$dfmt ignored";
+		}
+	}
+
+	1;
+}
+
+sub build_gtk_widget {
+	my $self = shift;
+	my ($gtk_widget) = @_;
+	
+	$gtk_widget->set_gtk_parent_widget($gtk_widget->get_custom_gtk_widget);
+	
+	1;
+}
+
+sub build_check_button_group {
+	my $self = shift;
+	my ($check_button_group) = @_;
+
+	my $hbox = Gtk2::HBox->new;
+	
+	$check_button_group->set_gtk_widget($hbox);
+
+	1;
+}
+
+sub build_text_view {
+	my $self = shift;
+	my ($text_view) = @_;
+	
+	my $gtk_text_view = Gtk2::TextView->new;
+	
+	$text_view->set_gtk_widget($gtk_text_view);
+	
 	1;
 }
 
@@ -648,13 +786,19 @@ sub add_widget_to_form {
 	my $gtk_table  = $form->get_gtk_widget;
 	my $gtk_widget = $widget->get_gtk_parent_widget;
 	
-	my $xopt = $widget->get_expand_h ? ['fill','expand'] : [ 'fill' ];
-	my $yopt = $widget->get_expand_v ? ['fill','expand'] : [ 'fill' ];
+	my $xopt = $widget->get_expand_h ? ['fill','expand'] : ['fill'];
+	my $yopt = $widget->get_expand_v ? ['fill','expand'] : ['fill'];
 
 	if ( $widget->get_label ne '' and not $widget->has_label ) {
-		my $gtk_label = $self->create_label_widget ($widget->get_label);
+		my $gtk_label = $self->create_label_widget ($widget);
 		$gtk_table->attach($gtk_label, 0, 1, $row, $row+1, 'fill', 'fill', 0, 0);
 		$widget->set_gtk_label_widget ($gtk_label);
+	}
+
+	if ( not $widget->get_expand_h ) {
+		my $hbox = Gtk2::HBox->new;
+		$hbox->pack_start($gtk_widget, 0, 1, 0);
+		$gtk_widget = $hbox;
 	}
 
 	$gtk_table->attach($gtk_widget, 1, 2, $row, $row+1, $xopt, $yopt, 0, 0);
@@ -675,7 +819,7 @@ sub add_widget_to_form_label_right {
 	$gtk_table->attach_defaults($gtk_entry, 0, 1, $row, $row+1);
 
 	if ( $widget->get_label ne '' and not $widget->has_label ) {
-		my $gtk_label = $self->create_label_widget ($widget->get_label);
+		my $gtk_label = $self->create_label_widget ($widget);
 		$gtk_table->attach($gtk_label, 1, 2, $row, $row+1, 'fill', [], 0, 0);
 		$widget->set_gtk_label_widget ($gtk_label);
 	}
@@ -712,7 +856,7 @@ sub add_widget_to_vbox {
 	my $gtk_widget = $widget->get_gtk_parent_widget;
 	
 	if ( $widget->get_label ne '' and not $widget->has_label ) {
-		my $gtk_label = $self->create_label_widget ($widget->get_label);
+		my $gtk_label = $self->create_label_widget ($widget);
 		$gtk_vbox->pack_start($gtk_label,  0, 1, 0);
 		$widget->set_gtk_label_widget ($gtk_label);
 	}
@@ -730,7 +874,7 @@ sub add_widget_to_hbox {
 	my $gtk_widget = $widget->get_gtk_parent_widget;
 	
 	if ( $widget->get_label ne '' and not $widget->has_label ) {
-		my $gtk_label = $self->create_label_widget ($widget->get_label);
+		my $gtk_label = $self->create_label_widget ($widget);
 		$gtk_hbox->pack_start($gtk_label,  0, 1, 0);
 		$widget->set_gtk_label_widget ($gtk_label);
 	}
@@ -755,9 +899,13 @@ sub add_widget_to_notebook {
 	
 	$widget->get_gtk_parent_widget->set ( border_width => 5 );
 	
+	my $label = $widget->get_title ne '' ?
+		Gtk2::Label->new($widget->get_title) :
+		undef;
+	
 	$notebook->get_gtk_widget->append_page(
 		$widget->get_gtk_parent_widget,
-		$widget->get_title
+		$label
 	);
 	
 	1;

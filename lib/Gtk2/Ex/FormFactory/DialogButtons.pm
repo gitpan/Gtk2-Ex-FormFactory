@@ -6,24 +6,75 @@ use base qw( Gtk2::Ex::FormFactory::Widget );
 
 sub get_type { "dialog_buttons" }
 
+sub get_buttons			{ shift->{buttons}			}
 sub get_clicked_hook_before	{ shift->{clicked_hook_before}		}
 sub get_clicked_hook_after	{ shift->{clicked_hook_after}		}
 
+sub set_buttons			{ shift->{buttons}		= $_[1]	}
 sub set_clicked_hook_before	{ shift->{clicked_hook_before}	= $_[1]	}
 sub set_clicked_hook_after	{ shift->{clicked_hook_after}	= $_[1]	}
+
+sub get_gtk_ok_button		{ shift->{gtk_ok_button}		}
+sub get_gtk_cancel_button	{ shift->{gtk_cancel_button}		}
+sub get_gtk_apply_button	{ shift->{gtk_apply_button}		}
+
+sub set_gtk_ok_button		{ shift->{gtk_ok_button}	= $_[1]	}
+sub set_gtk_cancel_button	{ shift->{gtk_cancel_button}	= $_[1]	}
+sub set_gtk_apply_button	{ shift->{gtk_apply_button}	= $_[1]	}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my  ($clicked_hook_before, $clicked_hook_after) =
-	@par{'clicked_hook_before','clicked_hook_after'};
+	my  ($buttons, $clicked_hook_before, $clicked_hook_after) =
+	@par{'buttons','clicked_hook_before','clicked_hook_after'};
 	
 	my $self = $class->SUPER::new(@_);
 	
+	$buttons ||= { ok => 1, cancel => 1 };
+
+	$self->set_buttons($buttons);
 	$self->set_clicked_hook_before($clicked_hook_before);
 	$self->set_clicked_hook_after($clicked_hook_after);
 	
 	return $self;
+}
+
+sub cleanup {
+	my $self = shift;
+	
+	$self->SUPER::cleanup(@_);
+
+	$self->set_gtk_ok_button(undef); 
+	$self->set_gtk_cancel_button(undef);
+	$self->set_gtk_apply_button(undef);
+
+	1;
+}
+
+
+sub object_to_widget {
+	my $self = shift;
+	
+	my $buttons;
+	$buttons = $self->get_object_value if $self->get_attr;
+	$buttons ||= "all";
+
+	foreach my $button ( keys %{$self->get_buttons} ) {
+		my $active = $buttons eq 'all' || $buttons->{$button};
+		my $gtk_widget = $self->{"gtk_".$button."_button"};
+		next if not $gtk_widget;
+		if ( $self->get_inactive eq 'invisible' ) {
+			if ( $active ) {
+				$gtk_widget->show;
+			} else {
+				$gtk_widget->hide;
+			}
+		} else {
+			$gtk_widget->set_sensitive($active);
+		}
+	}
+
+	1;
 }
 
 1;
@@ -46,8 +97,14 @@ Gtk2::Ex::FormFactory::DialogButtons - Standard Ok, Apply, Cancel Buttons
 =head1 DESCRIPTION
 
 This class implements a typical Ok, Apply, Cancel buttonbox in
-a Gtk2::Ex::FormFactory framework. No application object attributes
-are associated with a dialog button box.
+a Gtk2::Ex::FormFactory framework.
+
+If you associate an application
+object attribute the value needs to be a hash which may contain
+the keys 'ok', 'apply' and 'cancel' to control the activity of
+the correspondent buttons. Wheter inactive buttons should be
+render insensitive or invisible is controlled by the
+Gtk2::Ex::FormFactory::Widget attribute B<inactive>.
 
 By default the following methods of the associated
 Gtk2::Ex::FormFactory instance are triggered:
