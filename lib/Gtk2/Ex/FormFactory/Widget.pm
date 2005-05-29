@@ -19,12 +19,14 @@ sub get_label_group		{ shift->{label_group}			}
 sub get_widget_group		{ shift->{widget_group}			}
 sub get_tip			{ shift->{tip}				}
 sub get_inactive		{ shift->{inactive}			}
+sub get_active			{ shift->{active}			}
 sub get_rules			{ shift->{rules}			}
 sub get_expand			{ shift->{expand}			}
 sub get_expand_h		{ shift->{expand_h}			}
 sub get_expand_v		{ shift->{expand_v}			}
 sub get_scrollbars		{ shift->{scrollbars}			}
 sub get_signal_connect		{ shift->{signal_connect}		}
+sub get_signal_connect_after	{ shift->{signal_connect_after}		}
 sub get_width			{ shift->{width}			}
 sub get_height			{ shift->{height}			}
 sub get_customize_hook		{ shift->{customize_hook}		}
@@ -40,12 +42,14 @@ sub set_label_group		{ shift->{label_group}		= $_[1]	}
 sub set_widget_group		{ shift->{widget_group}		= $_[1]	}
 sub set_tip			{ shift->{tip}			= $_[1]	}
 sub set_inactive		{ shift->{inactive}		= $_[1]	}
+sub set_active			{ shift->{active}		= $_[1]	}
 sub set_rules			{ shift->{rules}		= $_[1]	}
 sub set_expand			{ shift->{expand}		= $_[1]	}
 sub set_expand_h		{ shift->{expand_h}		= $_[1]	}
 sub set_expand_v		{ shift->{expand_v}		= $_[1]	}
 sub set_scrollbars		{ shift->{scrollbars}		= $_[1]	}
 sub set_signal_connect		{ shift->{signal_connect}	= $_[1]	}
+sub set_signal_connect_after	{ shift->{signal_connect_after}	= $_[1]	}
 sub set_width			{ shift->{width}		= $_[1]	}
 sub set_height			{ shift->{height}		= $_[1]	}
 sub set_customize_hook		{ shift->{customize_hook}	= $_[1]	}
@@ -113,6 +117,10 @@ sub new {
 	@par{'signal_connect','width','height','customize_hook'};
 	my  ($changed_hook, $tip, $expand_h, $expand_v, $label_markup) =
 	@par{'changed_hook','tip','expand_h','expand_v','label_markup'};
+	my  ($active, $signal_connect_after) = 
+	@par{'active','signal_connect_after'};
+
+	$active = 1 if not defined $active;
 
 	#-- Short notation: 'object.attr', so you may omit 'object'
 	if ( $attr =~ /^([^.]+)\.(.*)/ ) {
@@ -147,7 +155,7 @@ sub new {
 	#-- Store widget name
 	$WIDGET_NAMES{$name} = 1;
 
-	#-- By default make widget insensitive if it's not active	
+	#-- By default make widget insensitive when it's not active	
 	$inactive ||= "insensitive";
 	
 	#-- Expanding defaults
@@ -161,27 +169,29 @@ sub new {
 			$inactive eq 'invisible';
 
 	my $self = bless {
-		name		=> $name,
-		object		=> $object,
-		attr		=> $attr,
-		properties	=> $properties,
-		label		=> $label,
-		label_group	=> $label_group,
-		label_markup	=> $label_markup,
-		widget_group    => $widget_group,
-		tip		=> $tip,
-		inactive	=> $inactive,
-		rules		=> $rules,
-		expand		=> $expand,
-		expand_h	=> $expand_h,
-		expand_v	=> $expand_v,
-		scrollbars	=> $scrollbars,
-		signal_connect	=> $signal_connect,
-		width		=> $width,
-		height		=> $height,
-		customize_hook	=> $customize_hook,
-		changed_hook	=> $changed_hook,
-		layout_data	=> {},
+		name			=> $name,
+		object			=> $object,
+		attr			=> $attr,
+		properties		=> $properties,
+		label			=> $label,
+		label_group		=> $label_group,
+		label_markup		=> $label_markup,
+		widget_group    	=> $widget_group,
+		tip			=> $tip,
+		active			=> $active,
+		inactive		=> $inactive,
+		rules			=> $rules,
+		expand			=> $expand,
+		expand_h		=> $expand_h,
+		expand_v		=> $expand_v,
+		scrollbars		=> $scrollbars,
+		signal_connect		=> $signal_connect,
+		signal_connect_after	=> $signal_connect_after,
+		width			=> $width,
+		height			=> $height,
+		customize_hook		=> $customize_hook,
+		changed_hook		=> $changed_hook,
+		layout_data		=> {},
 	}, $class;
 	
 	return $self;
@@ -296,6 +306,14 @@ sub connect_signals {
 		}
 	}
 
+	#-- Connect additional user specified signals (after)
+	my $signal_connect_after = $self->get_signal_connect_after;
+	if ( $signal_connect_after ) {
+		my $signal_widget = $self->get_gtk_signal_widget;
+		while ( my ($signal, $callback) = each %{$signal_connect_after} ) {
+			$signal_widget->signal_connect ( $signal => $callback );
+		}
+	}
 	1;
 }
 
@@ -306,10 +324,24 @@ sub update {
 	my $self = shift;
 	my ($change_state) = @_;
 
+	$Gtk2::Ex::FormFactory::DEBUG &&
+	    print "update_widget(".$self->get_name.", $change_state)\n";
+
 	#-- Check if widget updating is temoprarily disabled
 	#-- (refer to widget_value_changed() for this)
 	return if $self->get_no_widget_update;
-	return if not $self->get_object;
+	
+	#-- Is no object associated with this widget?
+	if ( not $self->get_object ) {
+		#-- Only a activity update may be possible, if
+		#-- an Gtk widget is present at all
+		if ( $self->get_gtk_parent_widget ) {
+			my $active = $self->get_active;
+			$active = $active ? "active" : "inactive";
+			$self->update_widget_activity ( $active );
+		}
+		return;
+	}
 
 	#-- We're going to change the widget's state. This will
 	#-- trigger the widget's changed signal. To prevent, that
@@ -371,6 +403,8 @@ sub update_widget_activity {
 	my $self = shift;
 	my ($active) = @_;
 	
+	$active = 0 if $active eq 'inactive';
+	
 	#-- Use the Widget's activity value over the given $active
 	if ( defined $self->get_widget_activity ) {
 		$active = $self->get_widget_activity;
@@ -379,26 +413,46 @@ sub update_widget_activity {
 	if ( $active ) {
 		#-- Make the widget visible resp. sensitive
 		if ( $self->get_inactive eq 'invisible' ) {
+			$Gtk2::Ex::FormFactory::DEBUG &&
+			    print "  update_widget_activity(".
+			    	  $self->get_name.
+			          ", show)\n";
 			$self->get_gtk_parent_widget->show;
 			$self->get_gtk_label_widget->show
 				if $self->get_gtk_label_widget;
 		} else {
+			$Gtk2::Ex::FormFactory::DEBUG &&
+			    print "  update_widget_activity(".
+			    	  $self->get_name.
+			          ", sensitive)\n";
 			$self->get_gtk_parent_widget->set_sensitive(1);
 			$self->get_gtk_label_widget->set_sensitive(1)
 				if $self->get_gtk_label_widget;
 		}
+	
 	} else {
 		#-- Make the widget invisible resp. insensitive
 		if ( $self->get_inactive eq 'invisible' ) {
+			$Gtk2::Ex::FormFactory::DEBUG &&
+			    print "  update_widget_activity(".
+			    	  $self->get_name.
+			          ", hide)\n";
 			$self->get_gtk_parent_widget->hide;
 			$self->get_gtk_label_widget->hide
 				if $self->get_gtk_label_widget;
 		} else {
+			$Gtk2::Ex::FormFactory::DEBUG &&
+			    print "  update_widget_activity(".
+			    	  $self->get_name.
+			          ", insensitive)\n";
 			$self->get_gtk_parent_widget->set_sensitive(0);
 			$self->get_gtk_label_widget->set_sensitive(0)
 				if $self->get_gtk_label_widget;
 		}
 	}
+
+	#-- Remember state
+	$self->set_active($active);
 
 	1;
 }

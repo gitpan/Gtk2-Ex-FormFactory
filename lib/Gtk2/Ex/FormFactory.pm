@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.53";
+$VERSION = "0.54";
 
 use strict;
 
@@ -250,6 +250,20 @@ sub get_image_path {
 	return;
 }
 
+sub change_mouse_cursor {
+	my $self = shift;
+	my ($type, $gtk_window) = @_;
+
+	$gtk_window ||= $self->get_form_factory_gtk_window;
+	return unless $gtk_window;
+	
+	my $cursor = $type ? Gtk2::Gdk::Cursor->new($type) : undef;
+	$gtk_window->window->set_cursor($cursor);
+	Gtk2->main_iteration while Gtk2->events_pending;
+	
+	1;
+}
+
 1;
 
 __END__
@@ -484,6 +498,14 @@ This is a convenience method to find a filename inside Perl's
 @INC path. You will need this if you ship images or icons
 inside your module namespace and want to retreive the actual
 filenames of them.
+
+=item $form_factory->B<change_mouse_cursor ( $type [, $gtk_widget] )
+
+This convenience method changes the mouse cursor of the
+window of this FormFactory, or of an arbitrary widget passed
+as $gtk_widget. $type is the cursor type, e.g. "watch" for
+a typical busy / sandglass cursor. Refer to the Gtk
+documentation for a complete list of possible mouse cursors.
 
 =back
 

@@ -37,7 +37,7 @@ main: {
 	);
 
 	my $gui_state = My::GuiState->new(
-	    selected_page => 3,
+	    selected_page => 4,
 	);
 
 	my $context = Gtk2::Ex::FormFactory::Context->new;
@@ -96,15 +96,31 @@ main: {
 	);
 	
 	my @table_childs;
-	for ( 1..12 ) {
-		push @table_childs, Gtk2::Ex::FormFactory::HBox->new (
-			expand  => 1,
-			title   => "Child $_",
+	for ( 1..11 ) {
+		push @table_childs, Gtk2::Ex::FormFactory::Button->new (
+			label => "Child $_",
 		);
 	}
+
+	my $ff;
+
+	push @table_childs, Gtk2::Ex::FormFactory::HBox->new (
+		expand  => 1,
+		title   => "Child $_",
+		content => [
+			Gtk2::Ex::FormFactory::Button->new (
+				label => "Change Cursor",
+				clicked_hook => sub {
+					$ff->change_mouse_cursor("watch");
+					sleep 1;
+					$ff->change_mouse_cursor();
+					1;
+				},
+			),
+		],
+	);
 	
 	foreach my $nr ( 1 ) {
-	  my $ff;
 	  $ff = Gtk2::Ex::FormFactory->new (
 	    context => $context,
 	    sync    => 1,
@@ -322,20 +338,26 @@ main: {
 		          Gtk2::Ex::FormFactory::Table->new (
 			    expand => 1,
 layout => "
-+--------------+>>>>>>>>>>>>+---+
-| 1            | 2          | 3 |
-+--------------+            |   |
-| 4            |            |   |
++[-------------+>>>>>>>>>>>]+---+
+| 1            |            |   |
++[-------------+          2 |   |
+|   ** 4 **    |            |   |
 +-------+------+------------+   |
-> 5     | 6    | 7          |   |
->       |      +------------+   |
->       |      | 8          |   |
+|       ^ 6    ^    ***     |   |
+|       ^      ^  ** 7 **   |   |
+|       ^      ^    ***     |   |
+|       ~      +-----%------+   |
+|       ^      ^     *      |   |
+|       ^      ~    *8*     |   |
+_ 5     ^      ^     *      |   |
 +-------+------+------------+   |
-> 9     |      | 10         |   |
->       |      +------------+   |
-|       |      | 11         |   |
-|       +------+------------+   |
-|       | 12                |   |
+|       |      ^     **     |   |
+|       |      ^  ** 10 **  |   |
+|       |      ^     **     |   |
+~ 9     |      +------------+   |
+|       |      |  ** 11 **  |   |
+|       +------+-----------]+   |
+|       |                12 _ 3 |
 +-------+-------------------+---+
 ",
 			    content => \@table_childs,

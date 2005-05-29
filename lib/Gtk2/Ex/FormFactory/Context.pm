@@ -272,7 +272,8 @@ sub update_object_widgets_activity {
 	my $self = shift;
 	my ($name, $activity) = @_;
 
-	warn "not tested yet\n";
+	warn "activity !(empty|inactive|active)"
+		unless $activity =~ /^empty|inactive|active$/;
 
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "update_object_activity($name)\n";

@@ -89,7 +89,7 @@ sub set_attr {
 	my $rc = $accessor ?
 		&$accessor($object, $attr_value) :
 		$object->$method($attr_value);
-	
+
 	$self->get_context
 	     ->update_object_attr_widgets($name, $attr_name, $object);
 	
@@ -199,10 +199,14 @@ sub get_attr_activity {
 	my $self = shift;
 	my ($attr_name) = @_;
 
+	$Gtk2::Ex::FormFactory::DEBUG &&
+	    print "    proxy->get_attr_activity($attr_name)\n";
+
 	my $object = $self->get_object;
 	return 0 if not defined $object;
 
 	my $attr_activity_href = $self->get_attr_activity_href;
+
 	return 1 if not exists $attr_activity_href->{$attr_name};
 
 	my $attr_activity = $attr_activity_href->{$attr_name};

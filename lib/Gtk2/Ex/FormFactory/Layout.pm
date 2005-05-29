@@ -241,7 +241,7 @@ sub build_form {
 	my $table = Gtk2::Table->new($child_cnt, 2);
 	$table->set ( row_spacing => 2, column_spacing => 10 );
 
-	if ( $title ) {
+	if ( $title && $form->get_parent->get_type ne 'notebook' ) {
 		my $gtk_label = $self->create_bold_label_widget($title);
 		$frame = Gtk2::Frame->new;
 		$frame->set_label_widget($gtk_label);
@@ -836,9 +836,27 @@ sub add_widget_to_table {
 	my $child_idx = $table->get_layout_data->{child_idx} || 0;
 
 	my $table_attach = $table->get_widget_table_attach->[$child_idx];
+	my $table_align  = $table->get_widget_table_align->[$child_idx];
+
+	my $gtk_widget = $table->get_content->[$child_idx]->get_gtk_parent_widget;
+
+	if ( defined $table_align->{xalign} or defined $table_align->{yalign} ) {
+		my $xalign = $table_align->{xalign};
+		my $yalign = $table_align->{yalign};
+
+		my $xscale = $xalign == -1 ? 1 : 0;
+		my $yscale = $yalign == -1 ? 1 : 0;
+		
+		$xalign = 0 if $xalign == -1;
+		$yalign = 0 if $yalign == -1;
+		
+		my $gtk_align = Gtk2::Alignment->new($xalign, $yalign, $xscale, $yscale);
+		$gtk_align->add($gtk_widget);
+		$gtk_widget = $gtk_align;
+	}
 
 	$table->get_gtk_widget->attach(
-		$table->get_content->[$child_idx]->get_gtk_parent_widget,
+		$gtk_widget,
 		@{$table_attach},
 		0, 0
 	);

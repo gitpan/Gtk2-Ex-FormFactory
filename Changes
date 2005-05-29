@@ -1,6 +1,15 @@
-$Id: Changes,v 1.5 2005/04/10 21:28:59 joern Exp $
+$Id: Changes,v 1.7 2005/05/29 14:21:17 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.54 Sun May 29, 2005, joern
+	Features:
+	- Gtk2::Ex::FormFactory::Table now handles arbitrary
+	  alignments of widgets in the cells.
+	- Gtk2::Ex::FormFactory: new convenience method
+	  change_mouse_cursor().
+	- Gtk2::Ex::FormFactory::Layout: no frames around
+	  forms if placed on a notebook page
 
 0.53 Sun Apr 10, 2005, joern
 	Features:

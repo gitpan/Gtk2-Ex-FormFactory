@@ -8,11 +8,13 @@ sub get_type { "table" }
 
 sub get_layout			{ shift->{layout}			}
 sub get_widget_table_attach	{ shift->{widget_table_attach}		}
+sub get_widget_table_align	{ shift->{widget_table_align}		}
 sub get_rows			{ shift->{rows}				}
 sub get_columns			{ shift->{columns}			}
 
 sub set_layout			{ shift->{layout}		= $_[1]	}
 sub set_widget_table_attach	{ shift->{widget_table_attach}	= $_[1]	}
+sub set_widget_table_align	{ shift->{widget_table_align}	= $_[1]	}
 sub set_rows			{ shift->{rows}			= $_[1]	}
 sub set_columns			{ shift->{columns}		= $_[1]	}
 
@@ -84,9 +86,9 @@ sub calculate_layout {
 	my $y = 0;
 	foreach my $row ( @layout_rows ) {
 		#-- Detect X coordinates
-		if ( $row =~ /\|/ ) {
+		if ( $row =~ /[|^_'~]/ ) {
 			my $x = 0;
-			foreach my $field ( split(/\|/, $row) ) {
+			foreach my $field ( split(/[|^_']/, $row) ) {
 				$x+=length($field);
 				$raster_x{$x} = 1;
 				++$x;
@@ -116,11 +118,17 @@ sub calculate_layout {
 	#-- Now walk through all lines and build the table
 	#-- attach information for each non-empty field
 	my @widget_table_attach;
+	my @widgets_table_align;
 	$y = 0;
 
-	foreach my $row ( @layout_rows ) {
-		#-- Skip rows which has no |
-		if ( $row !~ /\|/ ) {
+	foreach my $row_i ( @layout_rows ) {
+		#-- $row is modified beyond
+		my $row = $row_i;
+
+		#-- Skip lines which have no | or ' or ^ or _
+		#-- (such lines just separate rows from each other
+		#--  and are of no interest here)
+		if ( $row !~ /[|^_']/ ) {
 			++$y;
 			next;
 		}
@@ -138,14 +146,17 @@ sub calculate_layout {
 		my $left_attach  = 0;
 
 		#-- Remove the first | character, because we
-		#-- split at | boundaries
+		#-- split at | borders (otherwise we would
+		#-- get an empty field at the first position)
 		$row =~ s/^(.)//;
 
-		#-- And remember it, in case it's a ^ character,
-		#-- which let the row resize vertically
+		#-- And remember it, since it may be a special
+		#-- character (^ _ ') defining a vertical property.
 		my $row_first_char = $1;
 
-		foreach my $field ( split(/[\|\+]/, $row) ) {
+		#-- split row into fields. All vertical special
+		#-- characters mark borders, plus + and |.
+		foreach my $field ( split(/[|+'_^~]/, $row) ) {
 			$Gtk2::Ex::FormFactory::DEBUG &&
 				print "[$y,$left_x] field='$field'\n";
 
@@ -170,15 +181,16 @@ sub calculate_layout {
 			#-- Process this field only if it doesn't
 			#-- span over several rows, because then
 			#-- it was processed already in a previous
-			#-- interation)
-			if ( $y > 0 && substr($layout_rows[$y-1], $left_x+1, 1 ) =~ /[-><^~=]/ ) {
+			#-- iteration)
+			if ( $y > 0 && substr($layout_rows[$y-1], $left_x+1, 1 ) =~ /[-=>%\[\]]/ ) {
 				#-- Seek for the bottom of that field and calculate
 				#-- top and bottom attachment
 				my $top_attach = 0;
 				my $bot_attach = 0;
 
 				#-- Skip first line, which defines no columns
-				for ( my $y_seek = 1; $y_seek < $layout_rows; ++$y_seek ) {
+				my $y_seek;
+				for ( $y_seek = 1; $y_seek < $layout_rows; ++$y_seek ) {
 					$Gtk2::Ex::FormFactory::DEBUG &&
 						print "top_attach: y=$y y_seek=$y_seek ".
 						      "raster_y=$raster_y{$y_seek}\n";
@@ -205,42 +217,53 @@ sub calculate_layout {
 					#-- Out here if we hit the end of the field
 					last if  $y_seek >= $y and
 					         substr($layout_rows[$y_seek],
-							$left_x+1, 1) =~ /[-+=]/;
+							$left_x+1, 1) =~ /[-+=\[\]\%]/;
 
 					$field .= "\n".substr($layout_rows[$y_seek], 
 							      $left_x+1, $right_x-$left_x-1)
 						  if $y_seek > $y;
 				}
 
-				if ( $Gtk2::Ex::FormFactory::DEBUG && $field =~ /\S/ ) {
-					print "--------------------------\n";
-					print "y:            $y\n";
-					print "x:            ".($left_x+1),"\n";
-					print "left_attach:  $left_attach\n";
-					print "right_attach: $right_attach\n";
-					print "top_attach:   $top_attach\n";
-					print "bot_attach:   $bot_attach\n";
-					print "field:        '$field'\n";
-				}
-
 				#-- Push all attach values into the list,
 				#-- but only if the field is not empty
-				push @widget_table_attach, [
-				    #-- Attachments
-				    $left_attach,
-				    $right_attach,
-				    $top_attach,
-				    $bot_attach,
+				if ( $field =~ /\S/ ) {
+					my $hexpand = $self->get_xexpansion(\@layout_rows, $left_x+1, $y, $right_x);
+					my $vexpand = $self->get_yexpansion(\@layout_rows, $left_x, $y, $y_seek-1),
+					my $xalign = $self->get_xalign(\@layout_rows, $left_x+1, $y, $right_x);
+					my $yalign = $self->get_yalign(\@layout_rows, $left_x, $y, $y_seek-1);
 
-				    #-- Horizontal expansion is taken from the
-				    #-- first line in the $layout definition
-				    $self->get_expansion(substr($layout,$left_x+1,1)),
+					push @widget_table_attach, [
+					    #-- Attachments
+					    $left_attach,
+					    $right_attach,
+					    $top_attach,
+					    $bot_attach,
+					    $hexpand,
+					    $vexpand,
+					];
 
-				    #-- Vertical expansion is taken from the
-				    #-- first character of this row
-				    $self->get_expansion($row_first_char),
+					push @widgets_table_align, {
+					    xalign => $xalign,
+					    yalign => $yalign,
+					};
 
-				] if $field =~ /\S/;
+					if ( $Gtk2::Ex::FormFactory::DEBUG && $field =~ /\S/ ) {
+						$hexpand = join("|",@{$hexpand});
+						$vexpand = join("|",@{$vexpand});
+						print "--------------------------\n";
+						print "y:            $y\n";
+						print "x:            ".($left_x+1),"\n";
+						print "left_attach:  $left_attach\n";
+						print "right_attach: $right_attach\n";
+						print "top_attach:   $top_attach\n";
+						print "bot_attach:   $bot_attach\n";
+						print "field:        '$field'\n";
+						print "hexpand:      $hexpand\n";
+						print "vexpand:      $vexpand\n";
+						print "xalign:       $xalign\n";
+						print "yalign:       $yalign\n";
+					}
+				}
 			}
 
 			#-- Initialize left index/attach values
@@ -257,6 +280,7 @@ sub calculate_layout {
 	$self->set_rows(scalar(@raster_y)-1);
 	$self->set_columns(scalar(@raster_x-1));
 	$self->set_widget_table_attach(\@widget_table_attach);
+	$self->set_widget_table_align(\@widgets_table_align);
 
 	$Gtk2::Ex::FormFactory::DEBUG &&
 		print Data::Dumper::Dumper(\@widget_table_attach);
@@ -264,15 +288,68 @@ sub calculate_layout {
 	1;
 }
 
-sub get_expansion {
+sub get_xexpansion {
 	my $self = shift;
-	my ($type) = @_;
+	my ($layout_rows, $x, $y, $max_x) = @_;
+
+	my $row = $layout_rows->[$y-1];
+	my $c;
+	while ( $x <= $max_x ) {
+		$c = substr($row, $x, 1);
+#		return []                if $c eq '<';
+#		return ["expand"]        if $c eq '~';
+		return ["fill","expand"] if $c =~ /[>^]/;
+		++$x;
+	}
+
+	return ["fill"];
+}
+
+sub get_yexpansion {
+	my $self = shift;
+	my ($layout_rows, $x, $y, $max_y) = @_;
+
+	my $c;
+	while ( $y <= $max_y ) {
+		$c = substr($layout_rows->[$y], $x, 1);
+		return ["fill","expand"] if $c =~ /[>^]/;
+		++$y;
+	}
+
+	return ["fill"];
+}
+
+sub get_xalign {
+	my $self = shift;
+	my ($layout_rows, $x, $y, $max_x) = @_;
 	
-	return []                 if $type eq '<';
-	return ["fill"]           if $type =~ /[-|+=]/;
-	return ["expand"]         if $type eq '~';
-	return ["fill","expand"]  if $type =~ /[>^]/;
-	return [];
+	my $row = $layout_rows->[$y-1];
+	my $c;
+	while ( $x <= $max_x ) {
+		$c = substr($row, $x, 1);
+		return 0   if $c eq '[';
+		return 1   if $c eq ']';
+		return 0.5 if $c eq '%';
+		++$x;
+	}
+
+	return -1;
+}
+
+sub get_yalign {
+	my $self = shift;
+	my ($layout_rows, $x, $y, $max_y) = @_;
+
+	my $c;
+	while ( $y <= $max_y ) {
+		$c = substr($layout_rows->[$y], $x, 1);
+		return 0   if $c eq "'";
+		return 1   if $c eq '_';
+		return 0.5 if $c eq '~';
+		++$y;
+	}
+
+	return -1;
 }
 
 1;
@@ -286,17 +363,17 @@ Gtk2::Ex::FormFactory::Table - Complex table layouts made easy
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::Table->new (
-    layout => "+--------------+>>>>>>>>>>>+
-	       | Name	      | Image	  |
-	       +--------------+ 	  |
-	       | Keywords     | 	  |
-	       +-------+------+-----------+
-	       > Notes | More | Something |
-	       >       |      +-----+-----+
-	       >       |      |     | Foo |
-	       +-------+------+-----+-----+
-	       > Bar	      | Baz	  |
-	       +--------------+-----------+",
+    layout => "+-------%------+>>>>>>>>>>>>>>>+
+	       |     Name     |	    	      |
+	       +--------------~ Image 	      |
+	       | Keywords     | 	      |
+	       +-------+------+[--------------+
+	       ^       ' More | Something     |
+	       ^       |      +-----+--------]+
+	       _ Notes |      |     |     Foo |
+	       +-------+------+-----+---------+
+	       ^ Bar	      | Baz	      |
+	       +--------------+---------------+",
     content => [
       Gtk2::Ex::FormFactory::Entry->new ( ... ),
       Gtk2::Ex::FormFactory::Image->new ( ... ),
@@ -342,11 +419,11 @@ marking the imaginary lines with · characters:
   +-------+------+·····+·····|
   | Keyw  ·	 |     ·     |
   +-------+------+-----+-----+
-  > Notes | More | Som ·     |
-  >·······|····· +-----+-----+
-  >	  |	 |     | Foo |
+  ^ Notes | More | Som ·     |
+  ^·······|····· +-----+-----+
+  ^	  |	 |     | Foo |
   +-------+------+-----+-----+
-  > Bar   ·	 | Baz ·     |
+  ^ Bar   ·	 | Baz ·     |
   +-------+------+-----+-----+
 
 All cells of the table are attached to this grid.
@@ -371,11 +448,11 @@ Our example has this child order:
   +--------------+	     |
   | 3		 |	     |
   +-------+------+-----------+
-  > 4	  | 5	 | 6	     |
-  >	  |	 +-----+-----+
-  >	  |	 |     | 7   |
+  ^ 4	  | 5	 | 6	     |
+  ^	  |	 +-----+>>>>>+
+  ^	  |	 |     | 7   |
   +-------+------+-----+-----+
-  > 8		 | 9	     |
+  ^ 8		 | 9	     |
   +--------------+-----------+
 
 So the B<content> attribute of this table must list exactly nine
@@ -383,26 +460,50 @@ widgets, otherwise you would get a runtime exception, when it comes
 to building the table.
 
 Ok, now it's clear how the table cells are attached to the grid of
-the table. But what about the size of the cells and their widgets?
+the table. But what about the size of the cells resp. their widgets
+and the alignment of widgets inside their cells?
 
 This answer is about funny characters ;)
 
-Since all cells share the same part of the underlying grid they also
-share the same expansion/filling strategy. So it's sufficient to
-define the strategy per span, not per cell.
+=head2 Cell / Widget expansion
 
-That's why only the first character row and the first character
-column of your B<layout definition string> matter. You recognized the
-E<gt> characters? They say, that the cell and its widget should both
-resize with the table, by allocating all space available. In our
-example cell 2, 6, 7 and 9 resize horizontally with the table, cell
-4, 5, 6, 7, 8 and 9 vertically. Cell 1 and 3 don't resize at all,
-they fill the cell but stay at the cell's size, no matter how the
-table resizes.
+By default all cells and their widgets doesn't expand if the table
+expands. But you recognized the E<gt> and ^ characters? They say, that
+the cell and its widget should both resize with the table, by allocating
+all space available (> for horizontal expansion and ^ for vertical).
+If you want to resize just the cell, but not its widget, refer to
+the next chapter about widget alignments.
 
-This is the complete list of recognized characters and their meaning
-(again: these matter only at the first row and column of your layout
-drawing):
+In our example cell 2, 7 and 9 resize horizontal with the table,
+cell 4, 5, 6, 7, 8 and 9 vertical. Cell 1 and 3 don't resize at all,
+they fill the cell but stay at the cell's size, no matter how the table
+resizes.
+
+=head2 Widget alignment
+
+By default widgets fill their cell completely. If the cell expands the
+widgets expands as well. But you may want to align the widget on the
+left or right side, or in the middle, resp. at the top and the bottom.
+Once you define an alignment, the widget doesn't fill the cell anymore.
+Again there are some funny characters defining the alignment.
+
+For horizontal alignments the characters must be used in the B<top>
+border of the cell. For vertical alignment it needs to be the B<left>
+border of the cell.
+
+Horinzontal alignment is controlled with these
+characters: [ left, ] right and % middle. 
+
+Vertical alignment is controlled with these
+characters: ' top, _ bottom and ~ middle. 
+
+In the SYNPOSIS example "Image" is attached in the middle (vertical),
+"Notes" at the bottom and "More" at the top. "Something" is attached
+left, "Foo" right and "Name" centered (horizontal).
+
+=head2 Complete list of special characters
+
+This is the complete list of recognized characters and their meaning:
 
 =over 10
 
@@ -412,29 +513,46 @@ The widget fills the cell, but the cell doesn't resize with the
 table. That's the default, because these characters belong to the set
 of ASCII graphic characters used to draw the layout.
 
-Equals specifying only 'fill' in terms of Gtk2::Table->attach.
+=item >
 
-=item > ^
+The cell expands horizontal. Recognized only in the top
+border of a cell.
 
-Both, the cell and the widget, resize with the table.
-	    
-Equals specifying both 'expand' and 'fill' in terms of
-Gtk2::Table->attach.
+=item ^
 
-=item <
+The cell expands vertical. Recognized only in the left
+border of a cell.
 
-The cell doesn't resize and the widget doesn't fill the cell - it
-keeps its natural size.
+=item [
 
-Equals specifying neither 'expand' nor 'fill' in terms of
-Gtk2::Table->attach.
+Widget is attached on the left and doesn't expand anymore
+with the cell. Recognized only in the top border of a cell.
+
+=item ]
+
+Widget is attached on the right and doesn't expand anymore
+with the cell.  Recognized only in the top border of a cell.
+
+=item %
+
+Widget is attached in the middle (horizontal) and doesn't
+expand anymore with the cell. Recognized only in the top border of a cell.
+
+=item '
+
+Widget is attached on the top and doesn't expand anymore
+with the cell. Recognized only in the left border of a cell.
+
+=item _
+
+Widget is attached on the bottom and doesn't expand anymore
+with the cell. Recognized only in the left border of a cell.
 
 =item ~
 
-The cell resizes with the table, but the Widget keeps its natural
-size.
-	    
-Equals specifying only 'expand' in terms of Gtk2::Table->attach.
+Widget is attached in the middle (vertical) and doesn't expand
+anymore with the cell. Recognized only in the left border
+of a cell.
 
 =back
 
@@ -448,13 +566,23 @@ Some additional notes about the layout definition string.
 
 Although this should be obvious ;)
 
-In your drawing | characters (pipe symbol) mark column boundaries,
-and - or = (dash or equal sign) characters mark row boundaries. The +
+In your drawing | characters (pipe symbol) mark column borders,
+and - or = (dash or equal sign) characters mark row borders. The +
 (plus) characters have no special meaning. They're just for candy.
+
+For completeness: additionally the ^ _ and ' characters mark horizontal
+cell borders, since these are special characters controling the
+vertical alignment of a cell and are placed on the vertical borders
+of cells.
+
+You need at least one - or = character in the top vertical border
+of each row, otherwise the vertical raster of your table can't be
+recognized correctly. This should be no problem in practice at all.
 
 =item B<TAB characters>
 
 Don't use TAB characters but true SPACE characters inside the table.
+You get a warning on TAB characters.
 
 =item B<Whitespace around the table>
 
