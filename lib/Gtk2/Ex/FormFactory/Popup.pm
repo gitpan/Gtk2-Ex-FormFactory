@@ -23,11 +23,19 @@ sub object_to_widget {
 		my ($item);
 		$history = $i = 0;
 		foreach my $text ( @{$content} ) {
-			$item = Gtk2::MenuItem->new ($text);
-			$item->show;
-			$item->{value} = $i;
-			$gtk_popup_menu->append($item);
-			$history = $i if $i == $value;
+			if ( ref $text eq 'ARRAY' ) {
+				$item = Gtk2::MenuItem->new ($text->[1]);
+				$item->show;
+				$item->{value} = $text->[0];
+				$gtk_popup_menu->append($item);
+				$history = $i if $text->[0] eq $value;
+			} else {
+				$item = Gtk2::MenuItem->new ($text);
+				$item->show;
+				$item->{value} = $i;
+				$gtk_popup_menu->append($item);
+				$history = $i if $i == $value;
+			}
 			++$i;
 		}
 	} else {
@@ -177,17 +185,23 @@ the attribute associated with the widget.
 
 =item B<get_ATTR_list>
 
-This returns the entries of the Popup. Two data models are supported here:
+This returns the entries of the Popup. Three data models are supported here:
 
 =over 7
 
-=item B<ARRAY>
+=item Simple B<ARRAY>
 
-If the method returns a reference to an array, the popup will be filled
+If the method returns a reference to a simple array, the popup will be filled
 with the array values in the original array order.
 
 The index of the actually selected popup entry is stored in the
 attribute of the associated application object.
+
+=item Two dimensional B<ARRAY>
+
+The method may return a reference to a two dimensional array. Each row needs to
+have the attribute value in the first column and the label for the corresponding
+item in the second.
 
 =item B<HASH>
 
@@ -207,7 +221,7 @@ attribute of the associated application object.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

@@ -5,6 +5,8 @@ use strict;
 use Gtk2::SimpleList;
 use Gtk2::SimpleMenu;
 
+my $DEFAULT_SPACING = 5;
+
 sub new {
 	my $class = shift;
 	
@@ -154,7 +156,7 @@ sub build_window {
 	$gtk_window->set_position('center');
 
 	my $vbox = Gtk2::VBox->new(0, 5);
-	$vbox->set ( border_width => 5 );
+	$vbox->set ( border_width => $DEFAULT_SPACING );
 	$gtk_window->add($vbox);
 	
 	$window->set_gtk_widget($vbox);
@@ -213,6 +215,16 @@ sub build_notebook {
 	my ($notebook) = @_;
 	
 	my $gtk_notebook = Gtk2::Notebook->new;
+	my $title        = $notebook->get_title;
+
+	if ( $title ) {
+		my $gtk_label = $self->create_bold_label_widget($title);
+		my $gtk_frame = Gtk2::Frame->new;
+		$gtk_frame->set_label_widget($gtk_label);
+		$gtk_frame->add($gtk_notebook);
+		$gtk_notebook->set ( border_width => $DEFAULT_SPACING );
+		$notebook->set_gtk_parent_widget($gtk_frame);
+	}
 
 	$notebook->set_gtk_widget($gtk_notebook);
 
@@ -239,14 +251,14 @@ sub build_form {
 	
 	my $frame;
 	my $table = Gtk2::Table->new($child_cnt, 2);
-	$table->set ( row_spacing => 2, column_spacing => 10 );
+	$table->set ( row_spacing => 1, column_spacing => 5 );
 
 	if ( $title && $form->get_parent->get_type ne 'notebook' ) {
 		my $gtk_label = $self->create_bold_label_widget($title);
 		$frame = Gtk2::Frame->new;
 		$frame->set_label_widget($gtk_label);
 		$frame->add($table);
-		$table->set ( border_width => 5 );
+		$table->set ( border_width => $DEFAULT_SPACING );
 	}
 
 	$form->set_gtk_widget($table);
@@ -265,20 +277,19 @@ sub build_table {
 	
 	my $title = $table->get_title;
 	
-	my $gtk_frame;
 	my $gtk_table = Gtk2::Table->new($table->get_rows, $table->get_columns);
 	$gtk_table->set ( row_spacing => 2, column_spacing => 2 );
 
 	if ( $title ) {
 		my $gtk_label = $self->create_bold_label_widget($title);
-		$gtk_frame = Gtk2::Frame->new;
+		my $gtk_frame = Gtk2::Frame->new;
 		$gtk_frame->set_label_widget($gtk_label);
 		$gtk_frame->add($gtk_table);
-		$gtk_table->set ( border_width => 5 );
+		$gtk_table->set ( border_width => $DEFAULT_SPACING );
+		$table->set_gtk_parent_widget($gtk_frame);
 	}
 
 	$table->set_gtk_widget($gtk_table);
-	$table->set_gtk_parent_widget($gtk_frame);
 	
 	my $layout_widget_cnt  = @{$table->get_widget_table_attach};
 	my $content_widget_cnt = @{$table->get_content};
@@ -299,14 +310,14 @@ sub build_vbox {
 	my $title = $vbox->get_title;
 	
 	my $frame;
-	my $gtk_vbox = Gtk2::VBox->new($vbox->get_homogenous,($vbox->get_spacing||5));
+	my $gtk_vbox = Gtk2::VBox->new($vbox->get_homogenous,($vbox->get_spacing||$DEFAULT_SPACING));
 	
 	if ( $title and not $vbox->get_no_frame ) {
 		my $gtk_label = $self->create_bold_label_widget($title);
 		$frame = Gtk2::Frame->new;
 		$frame->set_label_widget($gtk_label);
 		$frame->add($gtk_vbox);
-		$gtk_vbox->set ( border_width => 5 );
+		$gtk_vbox->set ( border_width => $DEFAULT_SPACING );
 	}
 
 	$vbox->set_gtk_widget($gtk_vbox);
@@ -322,14 +333,14 @@ sub build_hbox {
 	my $title = $hbox->get_title;
 
 	my $frame;
-	my $gtk_hbox = Gtk2::HBox->new($hbox->get_homogenous,($hbox->get_spacing||5));
+	my $gtk_hbox = Gtk2::HBox->new($hbox->get_homogenous,($hbox->get_spacing||$DEFAULT_SPACING));
 	
 	if ( $title and not $hbox->get_no_frame ) {
 		my $gtk_label = $self->create_bold_label_widget($title);
 		$frame = Gtk2::Frame->new;
 		$frame->set_label_widget($gtk_label);
 		$frame->add($gtk_hbox);
-		$gtk_hbox->set ( border_width => 5 );
+		$gtk_hbox->set ( border_width => $DEFAULT_SPACING );
 	}
 
 	$hbox->set_gtk_widget($gtk_hbox);
@@ -349,7 +360,12 @@ sub build_label {
 	$gtk_label->set ( xalign => 0, yalign => 0.5 );
 
 	$label->set_gtk_widget($gtk_label);
-	
+
+	if ( $label->get_for ) {
+		my $for_widget = $label->lookup_widget($label->get_for);
+		$for_widget->set_gtk_label_widget($gtk_label);
+	}
+
 	1;
 }
 
@@ -485,7 +501,7 @@ sub build_button {
 	
 	if ( $stock and $label ) {
 		my $hbox = Gtk2::HBox->new;
-		my $image = Gtk2::Image->new_from_stock($stock,"button");
+		my $image = Gtk2::Image->new_from_stock($stock,"small-toolbar");
 		my $label = Gtk2::Label->new($label);
 		$hbox->pack_start($image, 0, 1, 0);
 		$hbox->pack_start($label, 0, 1, 0);
@@ -511,10 +527,12 @@ sub build_list {
 	my $self = shift;
 	my ($list) = @_;
 	
-	my $columns  = $list->get_columns;
-	my $types    = $list->get_types;
-	my $editable = $list->get_editable;
-	
+	my $columns    = $list->get_columns;
+	my $types      = $list->get_types;
+	my $editable   = $list->get_editable;
+	my $visible    = $list->get_visible;
+	my $no_header  = $list->get_no_header;
+
 	my (@slist, $i);
 
 	foreach my $col ( @{$columns} ) {
@@ -530,6 +548,18 @@ sub build_list {
 			$slist->set_column_editable($i, $e);
 			++$i;
 		}
+	}
+
+	if ( $visible ) {
+		$i = 0;
+		foreach my $v ( @{$visible} ) {
+			$slist->get_column($i)->set_visible($v);
+			++$i;
+		}
+	}
+
+	if ( $no_header ) {
+		$slist->set_headers_visible(0);
 	}
 
 	$slist->get_selection->set_mode ($list->get_selection_mode)
@@ -915,7 +945,7 @@ sub add_widget_to_notebook {
 	my $self = shift;
 	my ($widget, $notebook) = @_;
 	
-	$widget->get_gtk_parent_widget->set ( border_width => 5 );
+	$widget->get_gtk_parent_widget->set ( border_width => $DEFAULT_SPACING );
 	
 	my $label = $widget->get_title ne '' ?
 		Gtk2::Label->new($widget->get_title) :
@@ -1132,7 +1162,7 @@ This class has not attributes.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

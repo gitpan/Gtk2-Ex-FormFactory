@@ -296,8 +296,6 @@ sub get_xexpansion {
 	my $c;
 	while ( $x <= $max_x ) {
 		$c = substr($row, $x, 1);
-#		return []                if $c eq '<';
-#		return ["expand"]        if $c eq '~';
 		return ["fill","expand"] if $c =~ /[>^]/;
 		++$x;
 	}
@@ -616,7 +614,7 @@ For more attributes refer to Gtk2::Ex::FormFactory::Container.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

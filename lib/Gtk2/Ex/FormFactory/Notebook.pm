@@ -9,7 +9,13 @@ sub get_type { "notebook" }
 sub object_to_widget {
 	my $self = shift;
 
-	$self->get_gtk_widget->set ( page => $self->get_object_value );
+	#-- Workaround for a strange problem... Sometimes the notebook
+	#-- page isn't selected, probably a race condition somewhere
+	#-- in the Gtk2 module. But it works with a Timeout or Idle
+	#-- handler...
+	Glib::Idle->add (
+	    sub { $self->get_gtk_widget->set ( page => $self->get_object_value ); 0; }
+	);
 
 	1;
 }
@@ -94,7 +100,7 @@ For more attributes refer to Gtk2::Ex::FormFactory::Container.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

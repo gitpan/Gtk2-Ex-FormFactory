@@ -8,16 +8,20 @@ sub get_type  { "label" }
 sub has_label { shift->get_object eq '' }
 
 sub get_with_markup		{ shift->{with_markup}			}
+sub get_for			{ shift->{for}				}
+
 sub set_with_markup		{ shift->{with_markup}		= $_[1]	}
+sub set_for			{ shift->{for}			= $_[1]	}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my ($with_markup) = $par{'with_markup'};
+	my ($with_markup, $for) = @par{'with_markup','for'};
 
 	my $self = $class->SUPER::new(@_);
 	
 	$self->set_with_markup($with_markup);
+	$self->set_for($for);
 	
 	return $self;
 }
@@ -54,6 +58,7 @@ Gtk2::Ex::FormFactory::Label - A Label in a FormFactory framework
 
   Gtk2::Ex::FormFactory::Label->new (
     with_markup => Should the label render with markup?
+    for         => Name for Widget this label belongs to
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -92,6 +97,27 @@ If this is set to TRUE the Label may contain basic HTML markup,
 which is rendered accordingly. Refer to the "Pango Text Attribute Markup"
 chapter in the Gtk+ documentation for details.
 
+=item B<for> = SCALAR [optional]
+
+If this label belongs to another widget pass the widget's name here.
+This way the label greys out automatically, if the widget gets
+inactive.
+
+You may not just specify a simple name here but reference siblings
+of the label widget as well by specifying
+
+  sibling($nr)
+
+whereby $nr has a negative value to address siblings left from
+the Label and positive to address right siblings. E.g. sibling(-1)
+is the first left sibling and sibling(2) the second on the right.
+
+If you add your Widgets to a Gtk2::Ex::ForFactory::Form container
+the B<label> attributes of the Widgets are rendered automatically
+correspondently. But you need this feature for complex layouts
+not covered by Gtk2::Ex::ForFactory::Form, e.g. in a
+Gtk2::Ex::ForFactory::Table.
+
 =back
 
 For more attributes refer to L<Gtk2::Ex::FormFactory::Widget>.
@@ -102,7 +128,7 @@ For more attributes refer to L<Gtk2::Ex::FormFactory::Widget>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

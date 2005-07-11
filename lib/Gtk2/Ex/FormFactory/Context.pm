@@ -9,6 +9,7 @@ sub get_proxies_by_name		{ shift->{proxies_by_name}		}
 sub get_widgets_by_attr		{ shift->{widgets_by_attr}		}
 sub get_widgets_by_object	{ shift->{widgets_by_object}		}
 sub get_depend_trigger_href	{ shift->{depend_trigger_href}		}
+sub get_aggregated_by_href	{ shift->{aggregated_by_href}		}
 sub get_update_hooks_by_object	{ shift->{update_hooks_by_object}	}
 
 sub get_default_set_prefix	{ shift->{default_set_prefix}		}
@@ -34,6 +35,7 @@ sub new {
 		widgets_by_object	=> {},
 		update_hooks_by_object  => {},
 		depend_trigger_href	=> {},
+		aggregated_by_href	=> {},
 	}, $class;
 	
 	$self->add_object(
@@ -51,6 +53,8 @@ sub add_object {
 	@par{'name','object','set_prefix','get_prefix','attr_activity_href'};
 	my  ($attr_depends_href, $attr_accessors_href, $update_hook) =
 	@par{'attr_depends_href','attr_accessors_href','update_hook'};
+	my  ($aggregated_by) =
+	$par{'aggregated_by'};
 
 	$set_prefix ||= $self->get_default_set_prefix;
 	$get_prefix ||= $self->get_default_get_prefix;
@@ -77,6 +81,13 @@ sub add_object {
 	$self->get_update_hooks_by_object->{$name} = $update_hook
 		if $update_hook;
 
+	if ( $aggregated_by ) {
+		my ($parent_object, $parent_attr) = split(/\./, $aggregated_by);
+		my $parent_proxy = $self->get_proxy($parent_object);
+		$parent_proxy->get_attr_aggregate_href->{$parent_attr} = $name;
+		$self->get_aggregated_by_href->{$aggregated_by}->{$name} = 1;
+	}
+
 	return $proxies_by_name->{$name} = Gtk2::Ex::FormFactory::Proxy->new (
 		    context       	=> $self,
 		    name          	=> $name,
@@ -85,6 +96,7 @@ sub add_object {
 		    get_prefix    	=> $get_prefix,
 		    attr_activity_href	=> $attr_activity_href,
 		    attr_accessors_href	=> $attr_accessors_href,
+		    aggregated_by	=> $aggregated_by,
 	);
 }
 
@@ -195,6 +207,8 @@ sub get_proxy {
 	my $self = shift;
 	my ($name) = @_;
 
+	($name) = split (/\./, $name);
+
 	my $proxy = $self->get_proxies_by_name->{$name};
 
 	croak "Object '$name' not added to this context"
@@ -206,6 +220,8 @@ sub get_proxy {
 sub get_object {
 	my $self = shift;
 	my ($name) = @_;
+
+	($name) = split (/\./, $name);
 
 	my $proxy = $self->get_proxies_by_name->{$name};
 
@@ -219,6 +235,8 @@ sub set_object {
 	my $self = shift;
 	my ($name, $object) = @_;
 
+	($name) = split (/\./, $name);
+
 	my $proxy = $self->get_proxies_by_name->{$name};
 
 	croak "Object $name not added to this context"
@@ -229,12 +247,36 @@ sub set_object {
 	return $object;
 }
 
+sub set_object_attr {
+	my $self = shift;
+	my ($object_name, $attr_name, $value);
+	if ( @_ == 2 ) {
+		($object_name, $attr_name) = split(/\./, $_[0]);
+		$value = $_[1];
+	} elsif ( @_ == 3 ) {
+		($object_name, $attr_name, $value) = @_;
+	} else {
+		croak qq[Usage: set_object_attr("object.attr","value")].
+		      qq[       set_object_attr("object","attr","value")];
+		            
+	}
+
+	my $proxy = $self->get_proxies_by_name->{$object_name}
+		or die "Object '$object_name' not registered";
+
+	$proxy->set_attr($attr_name, $value);
+	
+	return $value;
+}
+
 sub update_object_attr_widgets {
 	my $self = shift;
 	my ($object, $attr) = @_;
 
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "update_object_attr_widgets($object, $attr)\n";
+
+	($object, $attr) = split(/\./, $object) if $object =~ /\./ && !$attr;
 
 	my $widgets_by_attr      = $self->get_widgets_by_attr;
 	my $depend_trigger_href  = $self->get_depend_trigger_href;
@@ -243,6 +285,8 @@ sub update_object_attr_widgets {
 
 	foreach my $update_object_attr ( keys %{$depend_trigger_href->{"$object.$attr"}} ) {
 		$_->update for values %{$widgets_by_attr->{$update_object_attr}};
+		$self->get_proxy($_)->update_by_aggregation
+		    for keys %{$self->get_aggregated_by_href->{$update_object_attr}};
 	}
 
 	1;
@@ -304,8 +348,11 @@ Gtk2::Ex::FormFactory::Context - Context in a FormFactory framework
   $context->add_object (
     name                => Name of the application object in
     			   this Context,
+    aggregated_by       => Object.Attribute of the parent object
+                           aggregating this object
     object              => The application object itself or a
     			   callback which returns the object,
+			   or undef if aggregated or set later
     get_prefix          => Prefix for read accessors,
     set_prefix          => Prefix for write accessors,
     attr_activity_href  => Hash of CODEREFS for attributes which return
@@ -378,10 +425,13 @@ want to associate these with your application object's attributes.
 
 This is the application object itself, or a code reference which
 returns the object. Using the code reference option gives you
-very flexible control. E.g. this way you can dynamically define the
-"actually selected track of a disc" in an imaginary Audio CD
-library program. But also note that this may have some impact on
-performance, because this code reference will be called quite often.
+very flexible control of what this object actually is. But also
+note that this may have some impact on performance, because this
+code reference will be called quite often.
+
+Often objects are aggregated by other objects, in that case don't
+set the object reference here but use the B<aggregate_by> option
+described below.
 
 An application object in terms of the Context may become undef,
 that's why the B<object> parameter is optional here. Also the
@@ -392,6 +442,26 @@ associated widgets will be set inactive automatically. You can
 control per widget if it should render invisible or insensitive
 in that case. Refer to L<Gtk2::Ex::FormFactory::Widget> for
 details.
+
+=item B<aggregated_by> = "object.attr" [optional]
+
+If this object has a parent object set this option to the
+fully qualified attribute holding the object reference, using
+the object dot attribute notation:
+
+  object.attr
+
+where B<object> is the name of the parent object used to register
+it to this Context, and B<attr> the attribute holding
+the reference to the object currently added to the Context.
+
+Once this attribute resp. the parent object change, the Context
+will be updated automatically, including all widgets depending
+on this widget.
+
+This way you can define your full object aggregation hierarchy
+and Gtk2::Ex::FormFactory takes care of all resulting dependencies
+on the GUI.
 
 =item B<get_prefix> = SCALAR [optional]
 
@@ -415,10 +485,10 @@ makes sense to implement the conversion routine in the Context
 instead of adding such GUI specific methods to your underlying
 classes, which should be as much GUI independent as possible.
 
-That's why you can override arbitrary accessors (read and write) using the
-B<attr_accessors_href> parameter. Key is the name of method to
-be overriden and value a code reference, which is called instead
-of the real method.
+That's why you can override arbitrary accessors (read and write)
+using the B<attr_accessors_href> parameter. Key is the name of method to
+be overriden and constant scalar value or a code reference, which
+is called instead of the real method.
 
 The code reference gets your application object as the first parameter,
 as usual for object methods, and additionally the new value in case of
@@ -428,7 +498,9 @@ A short example. Here we override the accessors B<get_tracks> and
 B<set_tracks> of an imagnary B<disc> object, which represents an
 audio CD. The track title is stored as a simple array and needs
 to be converted to a two dimensional array as expected by
-Gtk2::Ex::FormFactory::List:
+Gtk2::Ex::FormFactory::List. Additionally an constant accessor
+is defined for a Gtk2::Ex::FormFactory::Popup showing a bunch
+of music genres:
 
   $context->add_object (
     name => "disc",
@@ -458,9 +530,15 @@ Gtk2::Ex::FormFactory::List:
 	$disc->set_tracks(\@list);
 	return \@list;
       },
+      genre_list => {
+        "rock" => "Rock",
+	"pop"  => "Pop",
+	"elec" => "Electronic",
+	"jazz" => "Jazz",
+      },
     },
   );
-    
+
 
 =item B<attr_activity_href> = HASHREF [OPTIONAL]
 
@@ -482,13 +560,13 @@ to press a correpondent checkbox to activate this.
 
   $context->add_object (
     name => "person",
-    attr_activity_href => sub {
+    attr_activity_href => {
       ident_number => sub {
         my $person = shift;
 	return $person->get_may_override_ident_number;
       },
     },
-    attr_depends_href => sub {
+    attr_depends_href => {
       ident_number => "person.may_override_ident_number",
     },
   );
@@ -535,11 +613,19 @@ to this context.
 This sets a new object, which was registered as B<$name>
 to this context.
 
+=item $context->B<set_object_attr> ( "$object.$attr", $value )
+
+Set the attribute named B<$attr> of the object B<$object>
+to B<$value>. Dependent widgets update automatically.
+
 =item $context->B<update_object_attr_widgets> ( $object_name, $attr_name )
 
 Triggers updates on all GUI widgets which are associated with
 the attribute B<$attr_name> of the object registered as B<$object_name>
 to this context.
+
+You may omit B<$attr_name> and pass a fully qualified "object.attr"
+noted string as the first argument instead.
 
 =item $context->B<update_object_widgets> ( $object_name )
 
@@ -569,7 +655,7 @@ trigger the correspondent GUI updates as well.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

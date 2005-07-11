@@ -1,12 +1,13 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.54";
+$VERSION = "0.55";
 
 use strict;
 
 use base qw( Gtk2::Ex::FormFactory::Container );
 
 use Gtk2;
+use Gtk2::Ex::FormFactory::Loader;
 
 sub get_type { "form_factory" }
 
@@ -14,38 +15,10 @@ use Gtk2::Ex::FormFactory::Context;
 use Gtk2::Ex::FormFactory::Layout;
 use Gtk2::Ex::FormFactory::Rules;
 
-use Gtk2::Ex::FormFactory::Button;
-use Gtk2::Ex::FormFactory::CheckButton;
-use Gtk2::Ex::FormFactory::CheckButtonGroup;
-use Gtk2::Ex::FormFactory::Combo;
-use Gtk2::Ex::FormFactory::DialogButtons;
-use Gtk2::Ex::FormFactory::Entry;
-use Gtk2::Ex::FormFactory::Expander;
-use Gtk2::Ex::FormFactory::Form;
-use Gtk2::Ex::FormFactory::GtkWidget;
-use Gtk2::Ex::FormFactory::HBox;
-use Gtk2::Ex::FormFactory::HSeparator;
-use Gtk2::Ex::FormFactory::Image;
-use Gtk2::Ex::FormFactory::Label;
-use Gtk2::Ex::FormFactory::List;
-use Gtk2::Ex::FormFactory::Menu;
-use Gtk2::Ex::FormFactory::Notebook;
-use Gtk2::Ex::FormFactory::Popup;
-use Gtk2::Ex::FormFactory::ProgressBar;
-use Gtk2::Ex::FormFactory::RadioButton;
-use Gtk2::Ex::FormFactory::Table;
-use Gtk2::Ex::FormFactory::TextView;
-use Gtk2::Ex::FormFactory::Timestamp;
-use Gtk2::Ex::FormFactory::ToggleButton;
-use Gtk2::Ex::FormFactory::VBox;
-use Gtk2::Ex::FormFactory::Window;
-use Gtk2::Ex::FormFactory::YesNo;
-
 sub get_context			{ shift->{context}			}
 sub get_sync			{ shift->{sync}				}
 sub get_layouter		{ shift->{layouter}			}
 sub get_rule_checker		{ shift->{rule_checker}			}
-sub get_ok_hook			{ shift->{ok_hook}			}
 sub get_gtk_size_groups		{ shift->{gtk_size_groups}		}
 sub get_parent_ff		{ shift->{parent_ff}			}
 sub get_widgets_by_name		{ shift->{widgets_by_name}		}
@@ -54,7 +27,6 @@ sub set_context			{ shift->{context}		= $_[1]	}
 sub set_sync			{ shift->{sync}			= $_[1]	}
 sub set_layouter		{ shift->{layouter}		= $_[1]	}
 sub set_rule_checker		{ shift->{rule_checker}		= $_[1]	}
-sub set_ok_hook			{ shift->{ok_hook}		= $_[1]	}
 sub set_gtk_size_groups		{ shift->{gtk_size_groups}	= $_[1]	}
 sub set_parent_ff		{ shift->{parent_ff}		= $_[1]	}
 sub set_widgets_by_name		{ shift->{widgets_by_name}	= $_[1]	}
@@ -64,8 +36,8 @@ sub get_form_factory		{ shift					}
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my  ($context, $parent_ff, $sync, $layouter, $rule_checker, $ok_hook) =
-	@par{'context','parent_ff','sync','layouter','rule_checker','ok_hook'};
+	my  ($context, $parent_ff, $sync, $layouter, $rule_checker) =
+	@par{'context','parent_ff','sync','layouter','rule_checker'};
 
 	my $self = $class->SUPER::new(@_);
 
@@ -79,7 +51,6 @@ sub new {
 	$self->set_sync	           ($sync);
 	$self->set_layouter        ($layouter);
 	$self->set_rule_checker    ($rule_checker);
-	$self->set_ok_hook	   ($ok_hook);
 	$self->set_gtk_size_groups ({});
 	$self->set_widgets_by_name ({});
 
@@ -107,6 +78,20 @@ sub open {
 	
 	#-- Now show all widgets, if we shouldn't keep the hided
 	$self->show if not $hide;
+	
+	1;
+}
+
+sub build {
+	my $self = shift;
+	
+	#-- first register all widgets of this FormFactory
+	#-- to resolve cross references between Widgets
+	#-- during building.
+	$self->register_all_widgets($self);
+	
+	#-- Now call Container's build
+	$self->SUPER::build();
 	
 	1;
 }
@@ -169,26 +154,29 @@ sub close {
 	1;
 }
 
-sub register_widget {
+sub register_all_widgets {
 	my $self = shift;
 	my ($widget) = @_;
 	
-	$self->get_widgets_by_name->{$widget->get_name} = $widget;
+	if ( $widget->isa("Gtk2::Ex::FormFactory::Container") ) {
+		$self->register_widget($widget);
+		foreach my $child ( @{$widget->get_content} ) {
+			$self->register_all_widgets($child);
+		}
+	} else {
+		$self->register_widget($widget);
+	}
 	
 	1;
 }
 
-sub get_widget {
+sub register_widget {
 	my $self = shift;
-	my ($name) = @_;
-	
-	my $widget;
-	
-	die "Widget '$name' not registered to this ".
-	    "form factory ('".$self->get_name."')"
-	    	unless $widget = $self->get_widgets_by_name->{$name};
+	my ($widget) = @_;
 
-	return $widget;
+	$self->get_widgets_by_name->{$widget->get_name} = $widget;
+	
+	1;
 }
 
 sub get_form_factory_gtk_window {
@@ -233,6 +221,34 @@ sub open_confirm_window {
 		1;
 	});
 
+	$confirm->set_position ($position);
+	$confirm->show;
+
+	1;
+}
+
+sub open_message_window {
+	my $self = shift;
+	my %par = @_;
+	my  ($type, $message, $position) =
+	@par{'type','message','position'};
+
+	$position  ||= "center-on-parent";
+	$type      ||= "info";
+
+	my $confirm = Gtk2::MessageDialog->new_with_markup (
+		$self->get_form_factory_gtk_window,
+		["modal","destroy-with-parent"],
+		$type,
+		"ok",
+		$message
+	);
+
+	$confirm->signal_connect("response", sub {
+		my ($widget) = @_;
+		$widget->destroy;
+		1;
+	});
 	$confirm->set_position ($position);
 	$confirm->show;
 
@@ -319,7 +335,7 @@ Gtk2::Ex::FormFactory - Makes building complex GUI's easy
     ],
   );
 
-  $ff->build;
+  $ff->open;
   $ff->update;
   
   Gtk2->main;
@@ -472,18 +488,13 @@ need first to be deleted until Perl can exit the program cleanly.
 
 Currently this simply calls $form_factory->B<close>.
 
-=item $widget = $form_factory->B<get_widget> ( $name )
-
-Returns the Gtk2::Ex::FormFactory::Widget object named
-B<$name> of this FormFactory.
-
 =item $form_factory->B<open_confirm_window> ( parameters )
 
 This is a convenience method to open a confirmation window
-which is set transient to the window of this FormFactory.
+which is set modal and transient to the window of this FormFactory.
 The following parameters are known:
 
-  message       The message resp. question
+  message       The message resp. question, HTML markup allowed
   position      Position of the dialog. Defaults to 'center-on-parent'.
 		Other known values are: 'none', 'center', 'mouse'
 		and 'center-always'
@@ -491,6 +502,19 @@ The following parameters are known:
                 answered your question with "Yes"
   no_callback   Code reference to be called if the user
                 answered your question with "No"
+
+=item $form_factory->B<open_message_window> ( parameters )
+
+This is a convenience method to open a message window
+which is set modal and transient to the window of this FormFactory.
+The following parameters are known:
+
+  type          Type of the dialog. Defaults to 'info'.
+                Other known values are: 'warning', 'question' and 'error'
+  message       The message, HTML markup allowed
+  position      Position of the dialog. Defaults to 'center-on-parent'.
+		Other known values are: 'none', 'center', 'mouse'
+		and 'center-always'
 
 =item $filename = $form_factory->B<get_image_path>
 
@@ -515,7 +539,7 @@ documentation for a complete list of possible mouse cursors.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

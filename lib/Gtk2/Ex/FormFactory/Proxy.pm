@@ -7,18 +7,20 @@ my $NAME_CNT = 0;
 
 sub get_context			{ shift->{context}			}
 sub get_name			{ shift->{name}				}
+sub get_aggregated_by		{ shift->{aggregated_by}		}
 sub get_set_prefix		{ shift->{set_prefix}			}
 sub get_get_prefix		{ shift->{get_prefix}			}
 sub get_attr_activity_href	{ shift->{attr_activity_href}		}
 sub get_attr_accessors_href	{ shift->{attr_accessors_href}		}
+sub get_attr_aggregate_href	{ shift->{attr_aggregate_href}		}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
 	my  ($context, $object, $name, $set_prefix, $get_prefix) =
 	@par{'context','object','name','set_prefix','get_prefix'};
-	my  ($attr_accessors_href, $attr_activity_href) =
-	@par{'attr_accessors_href','attr_activity_href'};
+	my  ($attr_accessors_href, $attr_activity_href, $aggregated_by) =
+	@par{'attr_accessors_href','attr_activity_href','aggregated_by'};
 
 	$attr_accessors_href ||= {},
 	$attr_activity_href  ||= {};
@@ -28,10 +30,12 @@ sub new {
 		context			=> $context,
 		object			=> $object,
 		name			=> $name,
+		aggregated_by		=> $aggregated_by,
 		set_prefix		=> $set_prefix,
 		get_prefix		=> $get_prefix,
 		attr_activity_href	=> $attr_activity_href,
 		attr_accessors_href	=> $attr_accessors_href,
+		attr_aggregate_href	=> {},
 	}, $class;
 	
 	return $self;
@@ -43,13 +47,35 @@ sub get_object {
 	ref $object eq 'CODE' ? &$object() : $object;
 }
 
+sub update_by_aggregation {
+	my $self = shift;
+	
+	my $aggregated_by = $self->get_aggregated_by;
+	
+	my $object = $self->get_attr($aggregated_by);
+	
+	$self->set_object($object);
+	
+	1;
+}
+
 sub set_object {
 	my $self = shift;
 	my ($object) = @_;
 
 	$self->{object} = $object;
 	
-	$self->get_context->update_object_widgets ($self->get_name);
+	my $context = $self->get_context;
+
+	$context->update_object_widgets ($self->get_name);
+
+	my $attr_aggregate_href = $self->get_attr_aggregate_href;
+	my ($attr, $child_object_name, $child_object);
+
+	while ( ($attr, $child_object_name) = each %{$attr_aggregate_href} ) {
+		$child_object = $self->get_attr($attr);
+		$context->set_object($child_object_name, $child_object);
+	}
 
 	return $object;
 }
@@ -67,6 +93,7 @@ sub get_attr {
 	my $object   = $self->get_object;
 	my $accessor = $self->get_attr_accessors_href->{$method};
 
+	return if not $object;
 	return &$accessor($object) if $accessor;
 	return $object->$method();
 }
@@ -93,6 +120,11 @@ sub set_attr {
 	$self->get_context
 	     ->update_object_attr_widgets($name, $attr_name, $object);
 	
+	my $child_object_name = $self->get_attr_aggregate_href->{$attr_name};
+
+	$self->get_context->set_object($child_object_name, $attr_value)
+		if $child_object_name;
+	
 	return $rc;
 }
 
@@ -106,7 +138,7 @@ sub set_attrs {
 	my $context     = $self->get_context;
 	my $accessors   = $self->get_attr_accessors_href;
 	
-	my ($method, $attr_name, $attr_value, $accessor);
+	my ($method, $attr_name, $attr_value, $accessor, $child_object_name);
 
 	while ( ($attr_name, $attr_value) = each %{$attrs_href} ) {
 		$method = $set_prefix.$attr_name;
@@ -117,6 +149,9 @@ sub set_attrs {
 		$context->update_object_attr_widgets(
 			$name, $attr_name, $object
 		);
+		$child_object_name = $self->get_attr_aggregate_href->{$attr_name};
+		$self->get_context->set_object($child_object_name, $attr_value)
+			if $child_object_name;
 	}
 	
 	1;
@@ -130,7 +165,8 @@ sub get_attr_presets {
 	my $object  = $self->get_object;
 	my $accessor = $self->get_attr_accessors_href->{$method};
 
-	return &$accessor($object) if $accessor;
+	return &$accessor($object) if ref $accessor eq 'CODE';
+	return $accessor if $accessor;
 	return $object->$method();
 }
 
@@ -142,7 +178,8 @@ sub get_attr_rows {
 	my $object  = $self->get_object;
 	my $accessor = $self->get_attr_accessors_href->{$method};
 
-	return &$accessor($object) if $accessor;
+	return &$accessor($object) if ref $accessor eq 'CODE';
+	return $accessor if $accessor;
 	return $object->$method();
 }
 
@@ -154,7 +191,8 @@ sub get_attr_list {
 	my $object  = $self->get_object;
 	my $accessor = $self->get_attr_accessors_href->{$method};
 
-	return &$accessor($object, $widget_name) if $accessor;
+	return &$accessor($object, $widget_name) if ref $accessor eq 'CODE';
+	return $accessor if $accessor;
 	return $object->$method($widget_name);
 }
 
@@ -166,7 +204,8 @@ sub get_attr_presets_static {
 	my $object  = $self->get_object;
 	my $accessor = $self->get_attr_accessors_href->{$method};
 
-	return &$accessor($object) if $accessor;
+	return &$accessor($object) if ref $accessor eq 'CODE';
+	return $accessor if $accessor;
 	return 1 if not $object->can($method);
 	return $object->$method();
 }
@@ -179,7 +218,8 @@ sub get_attr_rows_static {
 	my $object  = $self->get_object;
 	my $accessor = $self->get_attr_accessors_href->{$method};
 
-	return &$accessor($object) if $accessor;
+	return &$accessor($object) if ref $accessor eq 'CODE';
+	return $accessor if $accessor;
 	return 1 if not $object->can($method);
 	return $object->$method();
 }
@@ -207,9 +247,11 @@ sub get_attr_activity {
 
 	my $attr_activity_href = $self->get_attr_activity_href;
 
-	return 1 if not exists $attr_activity_href->{$attr_name};
+	return 1 if not $attr_activity_href or
+		    not exists $attr_activity_href->{$attr_name};
 
 	my $attr_activity = $attr_activity_href->{$attr_name};
+
 	return $attr_activity if not ref $attr_activity eq 'CODE';
 	return &$attr_activity($object);
 }
@@ -236,6 +278,7 @@ Gtk2::Ex::FormFactory::Proxy - Proxy class for application objects
     get_prefix           => Method prefix for read accessors,
     attr_accessors_href  => Hashref with accessor callbacks,
     attr_activity_href   => Hashref with activity callbacks,
+    aggregated_by        => Fully qualified attribute of the parent
   );
 
 =head1 DESCRIPTION
@@ -279,17 +322,23 @@ This is the method prefix for write accessors. Defaults to B<set_>.
 
 This is the method prefix for read accessors. Defaults to B<get_>.
 
-=item B<attr_accessors_href> = HASHREF [OPTIONAL]
+=item B<attr_accessors_href> = HASHREF [optional]
 
 With this hash you can override specific accessors with a code
 reference, which is called instead of the object's own accessor.
 
 Refer to Gtk2::Ex::FormFactory::Context->add_object for details.
 
-=item B<attr_activity_href> = HASHREF [OPTIONAL]
+=item B<attr_activity_href> = HASHREF [optional]
 
 This hash defines callbacks for attributes which return the
 activity state of the corresonding attribute.
+
+Refer to Gtk2::Ex::FormFactory::Context->add_object for details.
+
+=item B<aggregated_by> = "object.attr" [optional]
+
+Fully qualified attribute of the parent aggregating this object
 
 Refer to Gtk2::Ex::FormFactory::Context->add_object for details.
 
@@ -344,7 +393,7 @@ Returns the current activity state of B<$attr>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

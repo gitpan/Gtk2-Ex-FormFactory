@@ -44,7 +44,7 @@ main: {
 
 	$context->add_object (
 		name	=> "database",
-		object	=> $database,
+		object	=> undef,
 		attr_accessors_href => {
 			get_discs => sub {
 				my $self = shift;
@@ -58,7 +58,7 @@ main: {
 
 	$context->add_object (
 		name	=> "disc",
-		object	=> sub { $database->get_selected_disc },
+		aggregated_by => "database.selected_disc",
 		attr_accessors_href => {
 			get_titles => sub {
 				my $self = shift;
@@ -95,6 +95,8 @@ main: {
 		object	=> undef,
 	);
 	
+	$context->set_object( database => $database);
+
 	my @table_childs;
 	for ( 1..11 ) {
 		push @table_childs, Gtk2::Ex::FormFactory::Button->new (
@@ -176,6 +178,7 @@ main: {
 			        expand      => 1,
 				attr        => "database.discs",
 				attr_select => "database.selected_discs_idx",
+				selects_object => "disc",
 				label       => "Album Selection",
 				tip         => "Select an entry for modification",
 				columns     => [ "Artist", "Album" ],
@@ -183,9 +186,6 @@ main: {
 				selection_mode   => "multiple",
 				properties  => {
 				    'enable-search' => 1,
-				},
-				changed_hook => sub {
-				    $context->update_object_widgets ("disc")
 				},
 			      ),
 			    ],

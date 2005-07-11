@@ -59,6 +59,7 @@ sub set_changed_hook		{ shift->{changed_hook}		= $_[1]	}
 #========================================================================
 # Accessors for internal attributes
 #========================================================================
+sub get_context			{ shift->{form_factory}->get_context	}
 sub get_form_factory		{ shift->{form_factory}			}
 sub get_parent			{ shift->{parent}			}
 sub get_gtk_widget		{ shift->{gtk_widget}			}
@@ -223,7 +224,7 @@ sub cleanup {
 
 	#-- Delete all references to this widget from the
 	#-- associated Context
-	$self->get_form_factory->get_context->deregister_widget ($self);
+	$self->get_context->deregister_widget ($self);
 	
 	#-- Destroy reference to the FormFactory
 	$self->set_form_factory(undef);
@@ -254,9 +255,6 @@ sub build {
 	     ->get_layouter
 	     ->build_widget($self);
 	
-	#-- Register this widget back to its FormFactory
-	$self->get_form_factory->register_widget($self);
-	
 	1;
 }
 
@@ -272,7 +270,7 @@ sub connect_signals {
 	return unless $gtk_widget;
 
 	#-- Need the context
-	my $context = $self->get_form_factory->get_context;
+	my $context = $self->get_context;
 
 	#-- Register the widget here...
 	#-- (deregistering is done in ->cleanup)
@@ -315,6 +313,51 @@ sub connect_signals {
 		}
 	}
 	1;
+}
+
+#========================================================================
+# Lookup a widget
+#========================================================================
+sub get_widget {
+	my $self = shift;
+	my ($name) = @_;
+	
+	my $widget;
+	my $form_factory = $self->get_form_factory;
+
+	die "Widget '$name' not registered to this ".
+	    "form factory ('".$form_factory->get_name."')"
+	    	unless $widget = $form_factory->get_widgets_by_name->{$name};
+
+	return $widget;
+}
+
+
+#========================================================================
+# Lookup a widget reference
+#========================================================================
+sub lookup_widget {
+	my $self = shift;
+	my ($name) = @_;
+	
+	if ( $name =~ /sibling\s*\((.*?)\)/ ) {
+		my $sibling_idx = $1;
+		my $siblings = $self->get_parent->get_content;
+		my $self_idx;
+		foreach my $sibling ( @{$siblings} ) {
+			if ( $sibling eq $self ) {
+				$self_idx ||= 0;
+				last;
+			}
+			++$self_idx;
+		}
+		die "Impossible" unless defined $self_idx;
+		my $sibling = $siblings->[$sibling_idx+$self_idx];
+		die "Can't find sibling($sibling_idx)" unless $sibling;
+		return $sibling;
+	} else {
+		return $self->get_form_factory->get_widget($name);
+	}
 }
 
 #========================================================================
@@ -743,7 +786,9 @@ was built.
 =item B<name> = SCALAR [optional]
 
 Each widget has a unique name. If you don't specify it explicitly a
-name is generated automatically.
+name is generated automatically. You can select named widgets later
+by using the B<get_widget> and B<lookup_widget> methods described
+below.
 
 =item B<object> = SCALAR [optional]
 
@@ -751,12 +796,23 @@ The name of the object, which controls this widget. This object name
 must be registered at the L<Gtk2::Ex::FormFactory::Context> of the
 L<Gtk2::Ex::FormFactory> associated with this Widget.
 
+You may omit the B<object> property and use a fully qualified
+"object.attr" notation in the B<attr> attribute described beyond.
+If you want to associate your Widget only with an object, but not to
+an attribute (e.g. to get the activity of a container widget without an
+associated object attribute managed automatically)
+just omit B<attr> and specify only B<object> here.
+
 =item B<attr> = SCALAR [optional]
 
 Usually a Widget represents a specific object attribute, e.g. a text
 entry shows the current value of the attribute you specify here. How
 this attribute is accessed is defined in the
 L<Gtk2::Ex::FormFactory::Context> instance.
+
+If you used the B<object> property just pass the name of your attribute
+here, but you may omit B<object> and pass "object.attr" to the B<attr>
+property for convenience as well.
 
 =item B<label> = SCALAR [optional]
 
@@ -838,7 +894,7 @@ If you want your Widget inside a Gtk2::ScrolledWindow, simply specify
 the policy for horizontal and vertical scrollbars here. Possible
 values are: B<"always">, B<"automatic"> or B<"never">.
 
-=item B<changed_hook> = CODEREF(ApplicationObject) [optional]
+=item B<changed_hook> = CODEREF(ApplicationObject, WidgetObject) [optional]
 
 This code reference is called after the user changed a value of the
 Widget and these changes were applied to the underlying application
@@ -936,6 +992,24 @@ dialogs.
 
 Convenience method which returns the Gtk2::Ex::FormFactory::Proxy
 instance for the object associated with this Widget.
+
+=item $another_widget = $widget->B<get_widget> ( $name )
+
+Returns the Gtk2::Ex::FormFactory::Widget object named
+B<$name> of the FormFactory of this widget.
+
+=item $another_widget = $widget->B<lookup_widget> ($name)
+
+The same as B<get_widget> if a widget name is passed, but
+additionally you may dereference sibling widgets by passing
+
+  sibling($n)
+
+This returns the $n-th sibling of this Widget, whereby $n may be
+a negative value.
+
+This method is used to lookup widgets assigned to a Gtk2::Ex::FormFactory::Label
+using the Label's B<for> attribute.
 
 =back
 
@@ -1075,7 +1149,7 @@ of Gtk2::Ex::FormFactory::Layout.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

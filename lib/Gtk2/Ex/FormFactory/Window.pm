@@ -21,6 +21,15 @@ sub new {
 	return $self;
 }
 
+sub object_to_widget {
+	my $self = shift;
+
+	$self->get_gtk_parent_widget->set_title($self->get_object_value);
+
+	1;
+}
+
+
 1;
 
 __END__
@@ -41,7 +50,7 @@ Gtk2::Ex::FormFactory::Window - A Window in a FormFactory framework
 =head1 DESCRIPTION
 
 This class implements a Window in a Gtk2::Ex::FormFactory framework.
-No application object attributes are associated with a Window.
+The window title may be controlled by an associated application object.
 
 By default a Window automatically is implemented with an VBox. So
 you can add more than one widget to a Gtk2::Ex::FormFactory::Window
@@ -86,7 +95,7 @@ button, or the program calls GtkWindow->destroy directly.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

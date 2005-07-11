@@ -8,43 +8,85 @@ use base qw( Gtk2::Ex::FormFactory::Widget );
 sub get_type { "list" }
 
 sub get_attr_select		{ shift->{attr_select}			}
+sub get_attr_select_column	{ shift->{attr_select_column}		}
+sub get_selects_object		{ shift->{selects_object}		}
 sub get_update_selection_only	{ shift->{update_selection_only}	}
 sub get_columns			{ shift->{columns}			}
 sub get_types			{ shift->{types}			}
+sub get_visible			{ shift->{visible}			}
 sub get_editable		{ shift->{editable}			}
 sub get_selection_mode		{ shift->{selection_mode}		}
 sub get_is_editable		{ shift->{is_editable}			}
 sub get_selection_backup	{ shift->{selection_backup}		}
+sub get_no_header		{ shift->{no_header}			}
 
 sub set_attr_select		{ shift->{attr_select}		= $_[1]	}
+sub set_attr_select_column	{ shift->{attr_select_column}	= $_[1]	}
+sub set_selects_object		{ shift->{selects_object}	= $_[1]	}
 sub set_update_selection_only	{ shift->{update_selection_only}= $_[1]	}
 sub set_columns			{ shift->{columns}		= $_[1]	}
 sub set_types			{ shift->{types}		= $_[1]	}
+sub set_visible			{ shift->{visible}		= $_[1]	}
 sub set_editable		{ shift->{editable}		= $_[1]	}
 sub set_selection_mode		{ shift->{selection_mode}	= $_[1]	}
 sub set_is_editable		{ shift->{is_editable}		= $_[1]	}
 sub set_selection_backup	{ shift->{selection_backup}	= $_[1]	}
+sub set_no_header		{ shift->{no_header}		= $_[1]	}
 
 sub has_additional_attrs	{ [ "select" ] 				}
+
+sub get_selected_rows {
+	my $self = shift;
+	my @sel = $self->get_gtk_widget->get_selected_indices;
+	return \@sel;
+}
+
+sub get_data {
+	my $self = shift;
+	return $self->get_gtk_widget->{data};
+}
+
+sub select_row_by_attr {
+	my $self = shift;
+	my ($attr_value) = @_;
+	
+	my $column = $self->get_attr_select_column;
+	my $data = $self->get_data;
+
+	for ( my $i=0; $i < @{$data}; ++$i ) {
+		if ( $data->[$i][$column] eq $attr_value ) {
+			$self->get_gtk_widget->select($i);
+			last;
+		}
+	}
+	
+	1;		
+}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my  ($attr_select, $columns, $types, $editable,) =
-	@par{'attr_select','columns','types','editable'};
-	my  ($update_selection_only, $selection_mode) =
-	@par{'update_selection_only','selection_mode'};
+	my  ($attr_select, $columns, $types, $editable, $visible) =
+	@par{'attr_select','columns','types','editable','visible'};
+	my  ($update_selection_only, $selection_mode, $selects_object) =
+	@par{'update_selection_only','selection_mode','selects_object'};
+	my  ($attr_select_column, $no_header) =
+	@par{'attr_select_column','no_header'};
 
 	croak "'columns' attribute is mandatory" unless $columns;
 
 	my $self = $class->SUPER::new(@_);
 	
-	$self->set_attr_select	  ($attr_select);
-	$self->set_columns  	  ($columns);
-	$self->set_types    	  ($types);
-	$self->set_editable 	  ($editable);
-	$self->set_selection_mode ($selection_mode);
-	$self->set_update_selection_only ($update_selection_only);
+	$self->set_attr_select	  	($attr_select);
+	$self->set_attr_select_column	($attr_select_column);
+	$self->set_selects_object	($selects_object);
+	$self->set_columns		($columns);
+	$self->set_visible		($visible);
+	$self->set_types		($types);
+	$self->set_editable		($editable);
+	$self->set_selection_mode	($selection_mode);
+	$self->set_update_selection_only($update_selection_only);
+	$self->set_no_header		($no_header);
 
 	my $is_editable = 0;
 	map { $is_editable = 1 if $_ } @{$editable};
@@ -57,29 +99,45 @@ sub new {
 sub object_to_widget {
 	my $self = shift;
 
+	my $object_value = $self->get_object_value || [];
+
 	if ( not $self->get_update_selection_only ) {
 		$self->get_gtk_widget
-		     ->set_data_array($self->get_object_value||[]);
+		     ->set_data_array($object_value);
 	} else {
 		$self->get_gtk_widget
-		     ->set_data_array($self->get_object_value||[])
+		     ->set_data_array($object_value)
 			if @{$self->get_gtk_widget->{data}} == 0;
 	}
+
 	if ( $self->get_attr_select ) {
 		my $idx = $self->get_proxy->get_attr (
 			$self->get_attr_select
 		);
 		my $gtk_simple_list = $self->get_gtk_widget;
 		if ( defined $idx and @{$idx} and @{$self->get_gtk_widget->{data}} != 0 ) {
+			if ( defined $self->get_attr_select_column ) {
+				my $i = 0;
+				my $col = $self->get_attr_select_column;
+				my $data = $self->get_gtk_widget->{data};
+				my %col2idx = map { ($_->[$col], $i++) } @{$data};
+				my @idx = map { $col2idx{$_} } @{$idx};
+				$idx = \@idx;
+			}
 			$gtk_simple_list->select(@{$idx});
 			$gtk_simple_list->scroll_to_cell(
 				Gtk2::TreePath->new_from_string($idx->[0]),
 				($gtk_simple_list->get_columns)[0],
 				0, 0
 			);
+
 		} else {
 			$gtk_simple_list->get_selection->unselect_all;
 		}
+	}
+
+	if ( $self->get_selects_object && @{$object_value} == 0 ) {
+		$self->get_proxy->set_attr ( $self->get_attr_select => undef );
 	}
 
 	1;
@@ -96,9 +154,26 @@ sub widget_to_object {
 	
 	if ( $self->get_attr_select ) {
 		my @sel = $self->get_gtk_widget->get_selected_indices;
+
+		if ( defined $self->get_attr_select_column ) {
+			my $column = $self->get_attr_select_column;
+			my $data   = $self->get_gtk_widget->{data};
+			$_ = $data->[$_][$column] for @sel;
+		}
+
 		$self->get_proxy->set_attr (
 			$self->get_attr_select, \@sel
 		); 
+
+		if ( $self->get_selects_object ) {
+			my $proxy = $self->get_context->get_proxy($self->get_selects_object);
+			#-- aggregation updates are handled in Context->update_object_attr_widgets();
+			if ( ! $proxy->get_aggregated_by ) {
+				$self->get_context->update_object_widgets (
+					$self->get_selects_object
+				);
+			}
+		}
 	}
 
 	1;
@@ -180,11 +255,15 @@ Gtk2::Ex::FormFactory::List - A List in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::List->new (
-    attr_select    => Attribute name for selection tracking,
-    columns        => Titles of the list columns,
-    types          => Types of the list columns,
-    editable       => Is content editable?,
-    selection_mode => Selection mode of this list,
+    attr_select        => Attribute name for selection tracking,
+    attr_select_column => Use this column's value to store in attr_select
+    selects_object     => Name of the object selected by this list,
+    columns            => Titles of the list columns,
+    types              => Types of the list columns,
+    editable           => Which columns are editable?,
+    visible            => Which columns are visible?
+    selection_mode     => Selection mode of this list,
+    no_header          => Omit header?
     update_selection_only => Boolean, whether updates should only
     			     change the selection, not the list
 			     of values,
@@ -223,9 +302,28 @@ was built.
 =item B<attr_select> = SCALAR [optional]
 
 If you want to track the selection state of the List set the name
-of the attribute of the associated application object here. A
-array reference with the indicies of the selected rows will be
-managed automatically and stored in this attribute.
+of the attribute of the associated application object here. An
+array reference with the indicies of the selected rows (or specific
+column values if B<attr_select_column> is set) will be managed
+automatically and stored in this attribute.
+
+=item B<attr_select_column>
+
+Normally indicies of the selected rows are stored in the attribute
+passed with B<attr_select>. Specify a column number here and the
+corresponding values will be stored instead (e.g. an internal
+database ID of an invisible column). If you use this you may use
+the B<select_row_by_attr()> method as well, which is described below.
+
+=item B<selects_object> = SCALAR [optional]
+
+If this list is an index to select a specific object out of a list
+of objects (e.g. an index of all tracks of a music CD) specifiy the
+Context's name of this object here. This way the corresponding object
+is updated automatically if the selection changes. You should make
+use of the B<aggregated_by> attribute when adding the object to the
+Context to make this work seamlessly. Please refer to
+Gtk2::Ex::FormFactory::Context for details.
 
 =item B<columns> = ARRAYREF [mandatory]
 
@@ -245,11 +343,17 @@ defaults to 'text'. Other possible types are:
   scalar  a perl scalar, displayed as a text string by default
   pixbuf  a Gtk2::Gdk::Pixbuf
 
-=item B<editable> = BOOL [optional]
+=item B<editable> = ARRAYREF [optional]
 
-If you set this to TRUE the contents of your list can be
-edited inplace. Changes are synchronized automatically with
-the associated application object attribute.
+This an array reference of boolean values, one value for
+each column. Changes to columns marked editable are synchronized
+automatically with the associated application object attribute.
+
+=item B<visible> = ARRAYREF [optional]
+
+This an array reference of boolean values, one value for
+each column and controls the visibility of the corresponding columns.
+Default is to display all columns.
 
 =item B<selection_mode> = 'none'|'single'|'browse'|'multiple' [optional]
 
@@ -268,13 +372,35 @@ since only the actual selection is affected.
 
 For more attributes refer to L<Gtk2::Ex::FormFactory::Widget>.
 
+=head1 METHODS
+
+=over 4
+
+=item $rows = $widget->B<get_selected_rows> ()
+
+Returns a list reference of selected row indicies.
+
+=item $data_lref = $widget->B<get_data> ()
+
+Returns the data array of the underlying Gtk2::SimpleList. It's
+a two dimensional array of rows and columns. All manipulations
+affect the GUI immediately but bypasses all Gtk2::Ex::FormFactory
+automatic object value update magic, so be careful with this.
+
+=item $widget->B<select_row_by_attr> ($value)
+
+Selects a row by a given B<select_attr> attribute value. Works
+only if B<select_attr> is set for this list.
+
+=back
+
 =head1 AUTHORS
 
  Jörn Reder <joern at zyn dot de>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

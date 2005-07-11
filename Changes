@@ -1,6 +1,50 @@
-$Id: Changes,v 1.7 2005/05/29 14:21:17 joern Exp $
+$Id: Changes,v 1.10 2005/07/11 15:48:01 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.55 Mon Jul 11, 2005, joern
+	Features:
+	- Added a fully functional tutorial program (a simple music
+	  database) which makes use of a lot of simple and advanced
+	  Gtk2::Ex::FormFactory features. Not documented yet, but
+	  nevertheless a good example to learn how Gtk2::Ex::FormFactory
+	  works. More details in tutorial/README.
+	- On demand loading of widget modules saves some memory
+	- Gtk2::Ex::FormFactory::Context
+	  - pass object aggregation information to define
+	    dependencies between objects. This way all dependent
+	    objects update automatically if their parent object
+	    changes.
+	  - defining constant attribute accessors is now possible,
+	    e.g. for simple Combo presets not changing at runtime.
+	  - new method set_object_attr() sets an specific application
+	    object attribute and triggers corresponding GUI updates
+	- Gtk2::Ex::FormFactory::List
+	   - new attribute "selects_object" for lists representing
+	     an index of objects to select one of them. The
+	     corresponding widgets are updated automatically
+	     once the list selection changes.
+	   - new attribute "visible" to control visibility of columns
+	   - new attribute "no_header" to suppress list headers
+	   - new attribute "attr_select_column" to have specific
+	     column values instead of selected indices in the
+	     "attr_select" attribute
+	- Gtk2::Ex::FormFactory::Label: declare an arbitrary Label
+	  widget as the label of another widget, so this label is
+	  deactivated/activated together with the assigned widget
+	  automatically, even in complex layouts.
+	- Gtk2::Ex::FormFactory::Popup: additional data model,
+	  two dimensional array to define ordered key/value pairs.
+	- Gtk2::Ex::FormFactory::Window: title may be controlled
+	  by an application object.
+	- Gtk2::Ex::FormFactory::Widget: moved get_widget() from
+	  Gtk2::Ex::FormFactory to here, so it's available for
+	  all widgets, not only in a FormFactory.
+
+	Bugfixes:
+	- Removed ok_hook() from Gtk2::Ex::FormFactory::Intro
+	  documentation, which was never implemented that way.
+	- Tooltips on combo entries didn't work.
 
 0.54 Sun May 29, 2005, joern
 	Features:

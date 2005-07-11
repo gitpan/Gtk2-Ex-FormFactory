@@ -168,12 +168,9 @@ dialogs you will break this into several pieces ]
 	],
       ),
     ],
-    ok_hook => sub {
-      # User hit Ok button
-    },
   );
   
-  $ff->build;	# actually build the GUI and open the window
+  $ff->open;	# actually build the GUI and open the window
   $ff->update;	# fill in the values from $config_object
 
 So now you defined that you want to have a text entry,
@@ -401,7 +398,7 @@ of layout" rule.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Jörn Reder.
+Copyright 2004-2005 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as
