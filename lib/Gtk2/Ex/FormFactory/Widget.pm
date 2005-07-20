@@ -14,6 +14,7 @@ sub get_object			{ shift->{object}			}
 sub get_attr			{ shift->{attr}				}
 sub get_properties		{ shift->{properties}			}
 sub get_label			{ shift->{label}			}
+sub get_label_for		{ shift->{label_for}			}
 sub get_label_markup		{ shift->{label_markup}			}
 sub get_label_group		{ shift->{label_group}			}
 sub get_widget_group		{ shift->{widget_group}			}
@@ -31,12 +32,16 @@ sub get_width			{ shift->{width}			}
 sub get_height			{ shift->{height}			}
 sub get_customize_hook		{ shift->{customize_hook}		}
 sub get_changed_hook		{ shift->{changed_hook}			}
+sub get_changed_hook_after	{ shift->{changed_hook_after}		}
+sub get_active_cond		{ shift->{active_cond}			}
+sub get_active_depends		{ shift->{active_depends}		}
 #------------------------------------------------------------------------
 sub set_name			{ shift->{name}			= $_[1]	}
 sub set_object			{ shift->{object}		= $_[1]	}
 sub set_attr			{ shift->{attr}			= $_[1]	}
 sub set_properties		{ shift->{properties}		= $_[1]	}
 sub set_label			{ shift->{label}		= $_[1]	}
+sub set_label_for		{ shift->{label_for}		= $_[1]	}
 sub set_label_markup		{ shift->{label_markup}		= $_[1]	}
 sub set_label_group		{ shift->{label_group}		= $_[1]	}
 sub set_widget_group		{ shift->{widget_group}		= $_[1]	}
@@ -54,6 +59,9 @@ sub set_width			{ shift->{width}		= $_[1]	}
 sub set_height			{ shift->{height}		= $_[1]	}
 sub set_customize_hook		{ shift->{customize_hook}	= $_[1]	}
 sub set_changed_hook		{ shift->{changed_hook}		= $_[1]	}
+sub set_changed_hook_after	{ shift->{changed_hook_after}	= $_[1]	}
+sub set_active_cond		{ shift->{active_cond}		= $_[1]	}
+sub set_active_depends		{ shift->{active_depends}	= $_[1]	}
 #========================================================================
 
 #========================================================================
@@ -93,6 +101,7 @@ sub set_widget_activity		{ shift->{widget_activity}	= $_[1]	}
 sub get_type			{ die $_[0]." misses type() method"	}
 sub get_gtk_signal_widget	{ $_[0]->get_gtk_widget			}
 sub get_gtk_tip_widgets		{ [ $_[0]->get_gtk_widget ] 		}
+sub get_gtk_check_widget	{ $_[0]->get_gtk_widget 		}
 sub get_widget_check_value 	{ undef	}
 sub has_additional_attrs	{ "" 	}
 sub has_label			{ 0	}
@@ -102,6 +111,9 @@ sub empty_widget		{ 1 	}
 sub backup_widget_value 	{ 1 	}
 sub restore_widget_value 	{ 1 	}
 sub isa_container		{ 0	}
+sub widget_data_has_changed	{ $_[0]->get_backup_widget_value ne
+				  $_[0]->get_widget_check_value }
+
 #========================================================================
 
 #========================================================================
@@ -118,8 +130,10 @@ sub new {
 	@par{'signal_connect','width','height','customize_hook'};
 	my  ($changed_hook, $tip, $expand_h, $expand_v, $label_markup) =
 	@par{'changed_hook','tip','expand_h','expand_v','label_markup'};
-	my  ($active, $signal_connect_after) = 
-	@par{'active','signal_connect_after'};
+	my  ($active, $signal_connect_after, $label_for) = 
+	@par{'active','signal_connect_after','label_for'};
+	my  ($active_cond, $active_depends, $changed_hook_after) =
+	@par{'active_cond','active_depends','changed_hook_after'};
 
 	$active = 1 if not defined $active;
 
@@ -175,6 +189,7 @@ sub new {
 		attr			=> $attr,
 		properties		=> $properties,
 		label			=> $label,
+		label_for		=> $label_for,
 		label_group		=> $label_group,
 		label_markup		=> $label_markup,
 		widget_group    	=> $widget_group,
@@ -192,6 +207,9 @@ sub new {
 		height			=> $height,
 		customize_hook		=> $customize_hook,
 		changed_hook		=> $changed_hook,
+		changed_hook_after	=> $changed_hook_after,
+		active_cond		=> $active_cond,
+		active_depends		=> $active_depends,
 		layout_data		=> {},
 	}, $class;
 	
@@ -279,13 +297,13 @@ sub connect_signals {
 	#-- On focus-in we backup the current object value
 	#-- (probably we need to restore this if the user
 	#--  enters invalid data)
-	$gtk_widget->signal_connect ("focus-in-event", sub {
+	$self->get_gtk_check_widget->signal_connect ("focus-in-event", sub {
 		$self->backup_widget_value;
 		0;
 	});
 
 	#-- On focus-out we check for valid data
-	$gtk_widget->signal_connect ("focus-out-event", sub {
+	$self->get_gtk_check_widget->signal_connect ("focus-out-event", sub {
 		$self->check_widget_value;
 		0;
 	});
@@ -393,14 +411,6 @@ sub update {
 	#-- for details)
 	$self->set_in_update(1);
 
-	#-- Transfer object value to widget
-	if ( $change_state eq '' ) {
-		$self->object_to_widget
-			if $self->get_proxy->get_object;
-	} elsif ( $change_state =~ /empty/ ) {
-		$self->empty_widget;
-	}
-
 	#-- Do we have an activity update? (if $change state is given,
 	#-- and contains the string 'inactive') - Default is to detect
 	#-- activity by the correspondent Proxy method (see below)
@@ -419,6 +429,14 @@ sub update {
 		#-- And set visibility or sensitivity accordingly,
 		#-- dependend on what's defined in the widget
 		$self->update_widget_activity ( $active );
+	}
+
+	#-- Transfer object value to widget
+	if ( $change_state eq '' ) {
+		$self->object_to_widget
+			if $self->get_proxy->get_object;
+	} elsif ( $change_state =~ /empty/ ) {
+		$self->empty_widget;
 	}
 
 	#-- Set widget into normal update state
@@ -452,6 +470,10 @@ sub update_widget_activity {
 	if ( defined $self->get_widget_activity ) {
 		$active = $self->get_widget_activity;
 	}
+
+	#-- Has this widget special activity conditions?
+	my $cond = $self->get_active_cond;
+	$active = &$cond() if $cond;
 
 	if ( $active ) {
 		#-- Make the widget visible resp. sensitive
@@ -550,12 +572,15 @@ sub check_widget_value {
 	my $rules = $self->get_rules;
 	return 1 if not defined $rules;
 
+	#-- Check only if data changed
+	return 1 unless $self->widget_data_has_changed;
+
 	#-- Rule checking is done by a Rules Object associated
 	#-- with the FormFactory of this Widget
 	my $rule_checker = $self->get_form_factory->get_rule_checker;
 
 	my $message;
-	if ( $self->get_form_factory->get_sync ) {
+	if ( $self->get_form_factory->get_sync && $self->get_object ) {
 		#-- If the FormFactory is in Sync mode, check
 		#-- the Object's value (access is faster than getting
 		#-- the Widget value)
@@ -599,15 +624,22 @@ sub widget_value_changed {
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print $self->get_type."(".$self->get_name.") value changed\n";
 
+	my $object = $self->get_object ? $self->get_proxy->get_object : undef;
+
 	if ( $self->get_form_factory->get_sync ) {
+		#-- Call the Widget's change hook
+		my $changed_hook = $self->get_changed_hook;
+		&$changed_hook($object, $self)
+			if $changed_hook;
+
 		#-- Apply all changes and update dependent
 		#-- widgets accordingly
 		$self->apply_changes;
 
-		#-- Call the Widget's change hook, if one was set
-		my $changed_hook = $self->get_changed_hook;
-		&$changed_hook($self->get_proxy->get_object, $self)
-			if $changed_hook;
+		#-- Call Widget's change_after_hook
+		my $changed_hook_after = $self->get_changed_hook_after;
+		&$changed_hook_after($object, $self)
+			if $changed_hook_after;
 
 	} else {
 		#-- Changing the object normally triggers this
@@ -616,12 +648,9 @@ sub widget_value_changed {
 		#-- to prevent this.
 		$self->set_no_widget_update(1);
 
-		#-- Call the Widget's change hook, if one was set,
-		#-- BEFORE dependet widgets are updated. Probably
-		#-- the widget update depends on stuff in the
-		#-- changed_hook.
+		#-- Call the Widget's change hook, if one was set
 		my $changed_hook = $self->get_changed_hook;
-		&$changed_hook($self->get_proxy->get_object, $self)
+		&$changed_hook($object, $self)
 			if $changed_hook;
 
 		#-- Now update all dependent widgets
@@ -633,6 +662,11 @@ sub widget_value_changed {
 
 		#-- Set widget into normal update state again
 		$self->set_no_widget_update(0);
+
+		#-- Call Widget's change_after_hook
+		my $changed_hook_after = $self->get_changed_hook_after;
+		&$changed_hook_after($object, $self)
+			if $changed_hook_after;
 	}
 
 	1;
@@ -705,26 +739,30 @@ Widgets
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::Widget->new (
-    name	   => Name of this Widget,
-    object	   => Name of the associated application object,
-    attr	   => Attribute represented by the Widget,
-    label	   => Label text,
-    label_markup   => Boolean, indicating whether the label has markup,
-    label_group    => Name of a Gtk2::SizeGroup for the label,
-    widget_group   => Name of a Gtk2::SizeGroup for the widget,
-    tip 	   => Tooltip text,
-    properties	   => { Gtk2 Properties ... }
-    inactive	   => 'insensitive' | 'invisible',
-    rules	   => [ Rules for this Widget ],
-    expand	   => Boolean: should the Widget expand?,
-    expand_h	   => Boolean: should the Widget expand horizontally?,
-    expand_v	   => Boolean: should the Widget expand vertically?,
-    scrollbars	   => [ hscrollbar_policy, vscrollbar_policy ],
-    signal_connect => { signal => CODREF, ... },
-    width	   => Desired width,
-    height	   => Desired height,
-    customize_hook => CODEREF: Customize the underlying Gtk2 Widget,
-    changed_hook   => CODEREF: Track changes made to the Widget,
+    name	         => Name of this Widget,
+    object	         => Name of the associated application object,
+    attr	         => Attribute represented by the Widget,
+    label	         => Label text,
+    label_markup         => Boolean, indicating whether the label has markup,
+    label_group          => Name of a Gtk2::SizeGroup for the label,
+    widget_group         => Name of a Gtk2::SizeGroup for the widget,
+    tip 	         => Tooltip text,
+    properties	         => { Gtk2 Properties ... }
+    inactive	         => 'insensitive' | 'invisible',
+    rules	         => [ Rules for this Widget ],
+    expand	         => Boolean: should the Widget expand?,
+    expand_h	         => Boolean: should the Widget expand horizontally?,
+    expand_v	         => Boolean: should the Widget expand vertically?,
+    scrollbars	         => [ hscrollbar_policy, vscrollbar_policy ],
+    signal_connect       => { signal => CODREF, ... },
+    signal_connect_after => { signal => CODREF, ... },
+    width	         => Desired width,
+    height	         => Desired height,
+    customize_hook       => CODEREF: Customize the underlying Gtk2 Widget,
+    changed_hook         => CODEREF: Track changes made to the Widget,
+    changed_hook_after   => CODEREF: Track changes made to the Widget,
+    active_cond          => CODEREF: Condition for Widget being active
+    active_depends       => SCALAR|ARRAYREF: Attribute(s) activity depends on
   );
 
 =head1 DESCRIPTION
@@ -897,8 +935,16 @@ values are: B<"always">, B<"automatic"> or B<"never">.
 =item B<changed_hook> = CODEREF(ApplicationObject, WidgetObject) [optional]
 
 This code reference is called after the user changed a value of the
-Widget and these changes were applied to the underlying application
-object. The application object is the first argument of the call.
+Widget, but before these changes are applied to the underlying application
+object. The application object is the first argument of the call, 
+the Widget object the second.
+
+=item B<changed_hook_after> = CODEREF(ApplicationObject, WidgetObject) [optional]
+
+This code reference is called after the user changed a value of the
+Widget and after these changes are applied to the underlying application
+object. The application object is the first argument of the call, 
+the Widget object the second.
 
 =item B<signal_connect> = HASHREF [optional]
 
@@ -910,6 +956,11 @@ B<Note>: don't use this to track changes made on the GUI!
 Gtk2::Ex::FormFactory manages this for you. If you want to be
 notified about changes, use the Widget transparent B<changed_hook>
 described above.
+
+=item B<signal_connect_after> = HASHREF [optional]
+
+Same as B<signal_connect>, but signals are connected using
+Gtk2's B<signal_connect_after> method.
 
 =item B<width> = INTEGER [optional]
 
@@ -928,6 +979,19 @@ first argument of this call.
 You can use this hook to do very specific customization with this
 Widget. Again: use this with care, probably implement your own
 L<Gtk2::Ex::FormFactory::Layout> class to control the layout.
+
+=item B<active_cond> = CODEREF() [optional]
+
+Widget's activity state (visible/sensitive) is controlled by this
+condition resp. the return value of this code reference.
+
+=item B<active_depends> = SCALAR | ARRAYREF [optional]
+
+This lists the attribute(s) (in "object.attr" notation) the
+activity condition above depends on, resp. which attributes
+are the variables in the condition. With this knowledge
+Gtk2::Ex::FormFactory is able to update the activity automatically
+if one of the corresponding attributes changes.
 
 =back
 
@@ -1081,6 +1145,12 @@ a single scalar, the implementation must care about this.
 
 This restores a value from the backup created with
 $self->B<backup_widget_value>().
+
+=item $self->B<get_gtk_check_widget> [optional]
+
+Returns the Gtk widget to which the focus-in and focus-out signals
+should be connected to for rule checking. Defaults to
+$self->B<get_gtk_widget>().
 
 =item $self->B<get_widget_check_value> [optional]
 

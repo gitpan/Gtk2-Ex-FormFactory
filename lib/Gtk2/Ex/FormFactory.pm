@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.55";
+$VERSION = "0.56";
 
 use strict;
 
@@ -196,8 +196,8 @@ sub get_form_factory_gtk_window {
 sub open_confirm_window {
 	my $self = shift;
 	my %par = @_;
-	my  ($message, $yes_callback, $no_callback, $position) =
-	@par{'message','yes_callback','no_callback','position'};
+	my  ($message, $yes_callback, $no_callback, $position, $with_cancel) =
+	@par{'message','yes_callback','no_callback','position','with_cancel'};
 
 	$position  ||= "center-on-parent";
 
@@ -205,9 +205,13 @@ sub open_confirm_window {
 		$self->get_form_factory_gtk_window,
 		["modal","destroy-with-parent"],
 		"question",
-		"yes_no",
+		"none",
 		$message
 	);
+
+	$confirm->add_buttons ("gtk-cancel", "cancel") if $with_cancel;
+	$confirm->add_buttons ("gtk-no",     "no");
+	$confirm->add_buttons ("gtk-yes",    "yes");
 
 	$confirm->signal_connect("response", sub {
 		my ($widget, $answer) = @_;

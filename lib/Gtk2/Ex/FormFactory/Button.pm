@@ -78,7 +78,7 @@ signal of the button.
 
 You may specify the name of a stock item here, which should be
 added to the button, e.g. 'gtk-edit' for the standard Gtk Edit
-stock item.
+stock item. You may combine B<stock> and B<label> arbitrarily.
 
 =back
 

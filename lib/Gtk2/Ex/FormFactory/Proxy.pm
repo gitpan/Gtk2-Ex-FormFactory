@@ -13,6 +13,7 @@ sub get_get_prefix		{ shift->{get_prefix}			}
 sub get_attr_activity_href	{ shift->{attr_activity_href}		}
 sub get_attr_accessors_href	{ shift->{attr_accessors_href}		}
 sub get_attr_aggregate_href	{ shift->{attr_aggregate_href}		}
+sub get_accessor		{ shift->{accessor}			}
 
 sub new {
 	my $class = shift;
@@ -21,6 +22,8 @@ sub new {
 	@par{'context','object','name','set_prefix','get_prefix'};
 	my  ($attr_accessors_href, $attr_activity_href, $aggregated_by) =
 	@par{'attr_accessors_href','attr_activity_href','aggregated_by'};
+	my  ($accessor) =
+	$par{'accessor'};
 
 	$attr_accessors_href ||= {},
 	$attr_activity_href  ||= {};
@@ -35,9 +38,10 @@ sub new {
 		get_prefix		=> $get_prefix,
 		attr_activity_href	=> $attr_activity_href,
 		attr_accessors_href	=> $attr_accessors_href,
+		accessor		=> $accessor,
 		attr_aggregate_href	=> {},
 	}, $class;
-	
+
 	return $self;
 }
 
@@ -89,9 +93,13 @@ sub get_attr {
 		$attr_name = $2;
 	}
 
-	my $method   = $self->get_get_prefix.$attr_name;
+	my $accessor = $self->get_accessor;
 	my $object   = $self->get_object;
-	my $accessor = $self->get_attr_accessors_href->{$method};
+
+	return &$accessor($object, $attr_name) if $accessor;
+	
+	my $method = $self->get_get_prefix.$attr_name;
+	$accessor  = $self->get_attr_accessors_href->{$method};
 
 	return if not $object;
 	return &$accessor($object) if $accessor;
@@ -107,15 +115,22 @@ sub set_attr {
 		$attr_name = $2;
 	}
 
-	my $set_prefix = $self->get_set_prefix;
-	my $object     = $self->get_object;
-	my $name       = $self->get_name;
-	my $method     = $set_prefix.$attr_name;
-	my $accessor   = $self->get_attr_accessors_href->{$method};
-	
-	my $rc = $accessor ?
-		&$accessor($object, $attr_value) :
-		$object->$method($attr_value);
+	my $accessor = $self->get_accessor;
+	my $object   = $self->get_object;
+	my $name     = $self->get_name;
+
+	my $rc;
+	if ( $accessor ) {
+		$rc = &$accessor($object, $attr_name, $attr_value);
+	} else {
+		my $set_prefix = $self->get_set_prefix;
+		my $method     = $set_prefix.$attr_name;
+		$accessor      = $self->get_attr_accessors_href->{$method};
+
+		$rc = $accessor ?
+			&$accessor($object, $attr_value) :
+			$object->$method($attr_value);
+	}
 
 	$self->get_context
 	     ->update_object_attr_widgets($name, $attr_name, $object);
@@ -139,19 +154,26 @@ sub set_attrs {
 	my $accessors   = $self->get_attr_accessors_href;
 	
 	my ($method, $attr_name, $attr_value, $accessor, $child_object_name);
-
+	
+	$accessor = $self->get_accessor;
+	
 	while ( ($attr_name, $attr_value) = each %{$attrs_href} ) {
-		$method = $set_prefix.$attr_name;
-		$accessor = $accessors->{$method};
-		$accessor ?
-			&$accessor($object, $attr_value) :
-			$object->$method($attr_value);
+		if ( $accessor ) {
+			&$accessor($object, $attr_name, $attr_value);
+		} else {
+			$method = $set_prefix.$attr_name;
+			$accessor = $accessors->{$method};
+			$accessor ?
+				&$accessor($object, $attr_value) :
+				$object->$method($attr_value);
+		}
 		$context->update_object_attr_widgets(
 			$name, $attr_name, $object
 		);
 		$child_object_name = $self->get_attr_aggregate_href->{$attr_name};
 		$self->get_context->set_object($child_object_name, $attr_value)
 			if $child_object_name;
+		$accessor = undef;
 	}
 	
 	1;

@@ -76,7 +76,7 @@ sub calculate_layout {
 	
 	#-- Get layout of this table
 	my $layout      = $self->get_layout;
-	my @layout_rows = split (/\n/, $layout);
+	my @layout_rows = map { s/^\s*//; $_ } split (/\n/, $layout);
 
 	#-- First we calculate the raster which forms the
 	#-- basis of this table. %raster_x and %raster_y

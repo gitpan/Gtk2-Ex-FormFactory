@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: music.pl,v 1.6 2005/07/11 16:24:12 joern Exp $
+# $Id: music.pl,v 1.7 2005/07/20 21:13:39 joern Exp $
 
 use strict;
 
@@ -342,13 +342,12 @@ sub build_artist_list {
 		    attr               => "gui.artists",
 		    attr_select        => "gui.selected_artist_id",
 		    attr_select_column => 0,
-		    selects_object     => "artist",
 		    scrollbars         => [ "never", "automatic" ],
 		    columns            => [ "id", "Artists" ],
 		    visible            => [ 0,    1         ],
 		    selection_mode     => "single",
 		    no_header          => 1,
-		    changed_hook       => sub {
+		    changed_hook_after => sub {
 		        $self->get_form_factory
 			     ->lookup_widget("album_list")
 			     ->get_gtk_widget->select(0);
@@ -368,7 +367,7 @@ sub build_artist_form {
 	        Gtk2::Ex::FormFactory::Entry->new (
 		    label => "Name",
 		    attr  => "artist.name",
-		    changed_hook => sub {
+		    changed_hook_after => sub {
 		        my ($artist) = @_;
 		        my $list = $self->get_form_factory->lookup_widget("artist_list");
 			$list->get_data->[$list->get_selected_rows->[0]]->[1] = $artist->get_name;
@@ -395,14 +394,13 @@ sub build_album_list {
 		    attr               => "artist.albums",
 		    attr_select        => "gui.selected_album_id",
 		    attr_select_column => 0,
-		    selects_object     => "album",
 		    scrollbars         => [ "never", "automatic" ],
 		    columns            => [ "id", "Albums" ],
 		    visible            => [ 0,    1         ],
 		    selection_mode     => "single",
 		    no_header          => 1,
 		    height	       => 80,
-		    changed_hook       => sub {
+		    changed_hook_after => sub {
 		        $self->get_form_factory
 			     ->lookup_widget("song_list")
 			     ->get_gtk_widget->select(0);
@@ -422,7 +420,7 @@ sub build_album_form {
 	        Gtk2::Ex::FormFactory::Entry->new (
 		    label => "Title",
 		    attr  => "album.title",
-		    changed_hook => sub {
+		    changed_hook_after => sub {
 		        my ($album) = @_;
 		        my $list = $self->get_form_factory->lookup_widget("album_list");
 			$list->get_data->[$list->get_selected_rows->[0]]->[1] = $album->get_title;
@@ -465,7 +463,6 @@ sub build_song_list {
 		    attr               => "album.songs",
 		    attr_select        => "gui.selected_song_id",
 		    attr_select_column => 0,
-		    selects_object     => "song",
 		    scrollbars         => [ "never", "automatic" ],
 		    columns            => [ "id", "Nr", "Title" ],
 		    visible            => [ 0,    1         ],
@@ -486,7 +483,7 @@ sub build_song_form {
 	        Gtk2::Ex::FormFactory::Entry->new (
 		    label => "Title",
 		    attr  => "song.title",
-		    changed_hook => sub {
+		    changed_hook_after => sub {
 		        my ($song) = @_;
 		        my $list = $self->get_form_factory->lookup_widget("song_list");
 			$list->get_data->[$list->get_selected_rows->[0]]->[2] = $song->get_title;
@@ -725,7 +722,6 @@ sub open_preferences {
 				    attr       		=> "gui.genre_list",
 				    attr_select		=> "gui.selected_genre_id",
 				    attr_select_column	=> 0,
-				    selects_object      => "genre",
 				    expand     		=> 1,
 				    scrollbars 		=> [ "never", "automatic" ],
 				    columns    		=> [ "id", "Name" ],
@@ -782,6 +778,7 @@ sub test_db_connection {
 	if ( $config->get_db_connection_ok ) {
 	    $context->set_object( db => 1 );
 	    $self->get_form_factory->update_all;
+	    $self->get_config_form_factory->update_all;
 	} else {
 	    $context->set_object( db     => undef );
 	    $context->set_object( artist => undef );

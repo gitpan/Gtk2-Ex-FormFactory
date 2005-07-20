@@ -11,6 +11,7 @@ sub get_widgets_by_object	{ shift->{widgets_by_object}		}
 sub get_depend_trigger_href	{ shift->{depend_trigger_href}		}
 sub get_aggregated_by_href	{ shift->{aggregated_by_href}		}
 sub get_update_hooks_by_object	{ shift->{update_hooks_by_object}	}
+sub get_widget_activity_href	{ shift->{widget_activity_href}		}
 
 sub get_default_set_prefix	{ shift->{default_set_prefix}		}
 sub get_default_get_prefix	{ shift->{default_get_prefix}		}
@@ -36,6 +37,7 @@ sub new {
 		update_hooks_by_object  => {},
 		depend_trigger_href	=> {},
 		aggregated_by_href	=> {},
+		widget_activity_href	=> {},
 	}, $class;
 	
 	$self->add_object(
@@ -53,8 +55,8 @@ sub add_object {
 	@par{'name','object','set_prefix','get_prefix','attr_activity_href'};
 	my  ($attr_depends_href, $attr_accessors_href, $update_hook) =
 	@par{'attr_depends_href','attr_accessors_href','update_hook'};
-	my  ($aggregated_by) =
-	$par{'aggregated_by'};
+	my  ($aggregated_by, $accessor) =
+	@par{'aggregated_by','accessor'};
 
 	$set_prefix ||= $self->get_default_set_prefix;
 	$get_prefix ||= $self->get_default_get_prefix;
@@ -63,10 +65,16 @@ sub add_object {
 		my $depend_trigger_href = $self->get_depend_trigger_href;
 		foreach my $attr ( keys %{$attr_depends_href} ) {
 			if ( not ref $attr_depends_href->{$attr} ) {
-				$depend_trigger_href->{$attr_depends_href->{$attr}}->{"$name.$attr"} = 1;
+				my $depends_attr = $attr_depends_href->{$attr};
+				$depends_attr = "$name.$depends_attr"
+					unless $depends_attr =~ /\./;
+				$depend_trigger_href->{$depends_attr}->{"$name.$attr"} = 1;
 			} elsif ( ref $attr_depends_href->{$attr} eq 'ARRAY' ) {
-				$depend_trigger_href->{$_}->{"$name.$attr"} = 1
-					for @{$attr_depends_href->{$attr}};
+				foreach my $depends_attr ( @{$attr_depends_href->{$attr}} ) {
+					$depends_attr = "$name.$depends_attr"
+						unless $depends_attr =~ /\./;
+					$depend_trigger_href->{$depends_attr}->{"$name.$attr"} = 1;
+				}
 			} else {
 				croak "Illegal attr_depends_href value for attribute '$attr'";
 			}
@@ -97,6 +105,7 @@ sub add_object {
 		    attr_activity_href	=> $attr_activity_href,
 		    attr_accessors_href	=> $attr_accessors_href,
 		    aggregated_by	=> $aggregated_by,
+		    accessor		=> $accessor,
 	);
 }
 
@@ -117,6 +126,12 @@ sub remove_object {
 sub register_widget {
 	my $self = shift;
 	my ($widget) = @_;
+	
+	if ( $widget->get_active_depends ) {
+		$self->get_widget_activity_href
+		     ->{$widget->get_active_depends}
+		     ->{$widget->get_name} = $widget;
+	}
 	
 	my $object_attr =
 		$widget->get_object.".".
@@ -183,7 +198,13 @@ sub deregister_widget {
 	delete $self->get_widgets_by_attr
 		    ->{$object_attr}
 		    ->{$widget_full_name};
-	
+
+	if ( $widget->get_active_depends ) {
+		delete $self->get_widget_activity_href
+		     ->{$widget->get_active_depends}
+		     ->{$widget->get_name};
+	}
+
 	if ( $widget->has_additional_attrs ) {
 		my $add_attrs = $widget->has_additional_attrs;
 		my $object = $widget->get_object;
@@ -269,6 +290,25 @@ sub set_object_attr {
 	return $value;
 }
 
+sub get_object_attr {
+	my $self = shift;
+	my ($object_name, $attr_name);
+	if ( @_ == 1 ) {
+		($object_name, $attr_name) = split(/\./, $_[0]);
+	} elsif ( @_ == 2 ) {
+		($object_name, $attr_name) = @_;
+	} else {
+		croak qq[Usage: get_object_attr("object.attr")].
+		      qq[       get_object_attr("object","attr")];
+		            
+	}
+
+	my $proxy = $self->get_proxies_by_name->{$object_name}
+		or die "Object '$object_name' not registered";
+
+	return $proxy->get_attr($attr_name);
+}
+
 sub update_object_attr_widgets {
 	my $self = shift;
 	my ($object, $attr) = @_;
@@ -280,8 +320,10 @@ sub update_object_attr_widgets {
 
 	my $widgets_by_attr      = $self->get_widgets_by_attr;
 	my $depend_trigger_href  = $self->get_depend_trigger_href;
+	my $widget_activity_href = $self->get_widget_activity_href;
 
 	$_->update for values %{$widgets_by_attr->{"$object.$attr"}};
+	$_->update for values %{$widget_activity_href->{"$object.$attr"}};
 
 	foreach my $update_object_attr ( keys %{$depend_trigger_href->{"$object.$attr"}} ) {
 		$_->update for values %{$widgets_by_attr->{$update_object_attr}};
@@ -305,6 +347,9 @@ sub update_object_widgets {
 	my $widgets_by_object = $self->get_widgets_by_object;
 	$_->update($change_state)
 		for values %{$widgets_by_object->{$name}};
+
+	my $widget_activity_href = $self->get_widget_activity_href;
+	$_->update for values %{$widget_activity_href->{$name}};
 
 	my $update_hook = $self->get_update_hooks_by_object->{$name};
 	&$update_hook($object) if $update_hook;
@@ -355,6 +400,8 @@ Gtk2::Ex::FormFactory::Context - Context in a FormFactory framework
 			   or undef if aggregated or set later
     get_prefix          => Prefix for read accessors,
     set_prefix          => Prefix for write accessors,
+    accessor            => CODEREF which handles access to all object
+    			   attributes
     attr_activity_href  => Hash of CODEREFS for attributes which return
 			   activity of the corresponding attributes,
     attr_depends_href   => Hash defining attribute dependencies,
@@ -473,7 +520,19 @@ setting of this Context for this object.
 With this parameter you can override the B<default_set_prefix>
 setting of this Context for this object.
 
-=item B<attr_accessors_href> = HASHREF [OPTIONAL]
+=item B<accessor> = CODEREF(object,attr[,value]) [optional]
+
+If B<accessor> is set this code reference is used as a generic
+accessor callback for all attributes. It handles getting and
+setting as well.
+
+Called with two arguments the passed attribute is to be read,
+with three arguments, the third argument is the value which
+is to be assigned to the attribute.
+
+This overrides B<attr_accessors_href> described beyond.
+
+=item B<attr_accessors_href> = HASHREF [optional]
 
 Often your application object attribute values doesn't fit the
 data type a particular Widget expects, e.g. in case of the
@@ -612,6 +671,10 @@ to this context.
 
 This sets a new object, which was registered as B<$name>
 to this context.
+
+=item $context->B<get_object_attr> ( "$object.$attr" )
+
+Retrieves the attribute named B<$attr> of the object B<$object>.
 
 =item $context->B<set_object_attr> ( "$object.$attr", $value )
 

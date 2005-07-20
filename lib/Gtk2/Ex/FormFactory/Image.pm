@@ -42,6 +42,8 @@ sub new {
 
 	my $self = $class->SUPER::new(@_);
 
+	$scale ||= 1 unless $scale_to_fit || $scale_hook;
+
 	$self->set_with_frame($with_frame);
 	$self->set_bgcolor($bgcolor);
 	$self->set_scale_to_fit($scale_to_fit);

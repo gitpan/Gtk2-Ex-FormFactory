@@ -13,26 +13,36 @@ my %RULES = (
     "identifier"		=> sub { $_[0] =~ /^[a-z_]\w*$/i	},
     "no-whitespace"		=> sub { $_[0] !~ /\s/			},
 
+    "zero"                      => sub { $_[0] =~ /^0(\.0*)?$/		},
+    "not-zero"			=> sub { $_[0] !~ /^0(\.0*)?$/		},
+
     "integer"			=> sub { $_[0] =~ /^[+-]?\d+$/		},
-    "positive-integer"		=> sub { $_[0] =~ /^[+]?\d+$/ 		},
+    "positive-integer"		=> sub { $_[0] =~ /^\+?\d+$/ && $_[0] > 0;		},
+    "positive-zero-integer"	=> sub { $_[0] =~ /^\+?\d+$/ 		},
     "negative-integer"		=> sub { $_[0] =~ /^-\d+$/		},
+    "negative-zero-integer"	=> sub { $_[0] =~ /^(-\d+|0+)$/		},
 
     "float"			=> sub { $_[0] =~ /^[+-]?\d+(\.\d+)?$/	},
-    "positive-float"		=> sub { $_[0] =~ /^[+]?\d+(\.\d+)?$/	},
+    "positive-float"		=> sub { $_[0] =~ /^\+?\d+(\.\d+)?$/ && $_[0] > 0	},
+    "positive-zero-float"	=> sub { $_[0] =~ /^\+?\d+(\.\d+)?$/	},
     "negative-float"		=> sub { $_[0] =~ /^-\d+(\.\d+)?$/	},
+    "negative-zero-float"	=> sub { $_[0] =~ /^(-\d+(\.\d+)?|0+)$/	},
 
     "odd"			=> sub {   $_[0] % 2			},
     "even"			=> sub { !($_[0] % 2)			},
     
-    "file-executable"		=> sub { (-f $_[0] && -x $_[0])		},
-    "file-writable"		=> sub { (-f $_[0] && -w $_[0])		},
-    "file-readable"		=> sub { (-f $_[0] && -r $_[0])		},
+    "file-executable"		=> sub { (!-d $_[0] && -x $_[0])	},
+    "file-writable"		=> sub { (!-d $_[0] && -w $_[0])	},
+    "file-readable"		=> sub { (!-d $_[0] && -r $_[0])	},
     
     "dir-writable"		=> sub { (-d $_[0] && -w $_[0])		},
     "dir-readable"		=> sub { (-d $_[0] && -r $_[0])		},
 
     "parent-dir-writable"	=> sub { -w dirname($_[0]) 		},
     "parent-dir-readable"	=> sub { -r dirname($_[0])		},
+
+    "executable-command"	=> \&rule_executable_command,
+
 );
 
 my %RULES_MESSAGES = (
@@ -43,13 +53,20 @@ my %RULES_MESSAGES = (
     "identifier"		=> "{field} is no identifier.",
     "no-whitespace"		=> "{field} contains whitespace.",
 
+    "zero"			=> "{field} is not zero",
+    "not-zero"			=> "{field} is zero",
+
     "integer"			=> "{field} is no integer.",
     "positive-integer"		=> "{field} is no positive integer.",
+    "positive-zero-integer"	=> "{field} is no positive/zero integer.",
     "negative-integer"		=> "{field} is no negative integer.",
+    "negative-zero-integer"	=> "{field} is no negative/zero integer.",
 
     "float"			=> "{field} is no float.",
     "positive-float"		=> "{field} is no positive float.",
-    "negative-float"		=> "{field} is no negativ float.",
+    "positive-zero-float"	=> "{field} is no positive/zero float.",
+    "negative-float"		=> "{field} is no negative float.",
+    "negative-zero-float"	=> "{field} is no negative/zero float.",
 
     "odd"			=> "{field} is not odd.",
     "even"			=> "{field} is not even.",
@@ -63,6 +80,8 @@ my %RULES_MESSAGES = (
 
     "parent-dir-writable"	=> "{field} has no writable parent directory.",
     "parent-dir-readable"	=> "{field} has no readable parent directory.",
+    
+    "executable-command"	=> "_rule_result",
 );
 
 my $MESSAGE_FORMAT = "Data entered is invalid.\n\n[MESSAGES]\nOld value restored.";
@@ -98,10 +117,16 @@ sub check {
 	my $self = shift;
 	my ($rules, $field, $value) = @_;
 
+	$field ||= "Value";
+
 	$rules = [ $rules ] unless ref $rules eq 'ARRAY';
 
 	my $messages;
 	foreach my $rule ( @{$rules} ) {
+		if ( $rule eq 'or-empty' ) {
+			return "" if $value eq '';
+			next;
+		}
 		if ( ref $rule eq 'CODE' ) {
 			my $msg = &$rule($value);
 			$messages .= "$msg\n" if $msg;
@@ -111,13 +136,18 @@ sub check {
 		my $coderef = $self->get_rules->{$rule} || $RULES{$rule};
 		
 		if ( $coderef ) {
-			if ( ! &$coderef($value) ) {
-				my $message =
-					$self->get_rules_messages->{$rule} ||
-					$RULES_MESSAGES{$rule};
-				warn "Message of rule '$rule' not defined"
-					if $message eq '';
-				$message ||= "{field} has an unknown error";
+			my $rc = &$coderef($value);
+			my $message =
+				$self->get_rules_messages->{$rule} ||
+				$RULES_MESSAGES{$rule};
+			warn "Message of rule '$rule' not defined"
+				if $message eq '';
+			$message ||= "{field} has an unknown error";
+			if ( $message eq '_rule_result' ) {
+				if ( $rc ne '' ) {
+					$messages .= "$rc\n";
+				}
+			} elsif ( !$rc ) {
 				$messages .= "$message\n";
 			}
 		} else {
@@ -135,8 +165,26 @@ sub check {
 	return $messages;
 }
 
-1;
+sub rule_executable_command {
+	my ($command) = @_;
+	
+	my ($file) = split (/ /, $command);
+	
+	if ( not -f $file ) {
+		foreach my $p ( split (/:/, $ENV{PATH}) ) {
+			$file = "$p/$file",last if -x "$p/$file";
+		}
+	}
+	
+	if ( -x $file ) {
+		return "";
+	} else {
+		return "{field} not found" if not -e $file;
+		return "{field} not executable";
+	}
+}
 
+1;
 
 __END__
 
@@ -156,9 +204,11 @@ Gtk2::Ex::FormFactory::Rules - Rule checking in a FormFactory framework
 =head1 DESCRIPTION
 
 This class implements rule checking in a Gtk2::Ex::FormFactory framework.
-Each widget can have on or more rules which are checked against the
-widget's value when the user changes it. This way you can prevent the
-user from entering illegal data at a high level.
+Each widget can have on or more rules (combined with the locical B<and>
+operator, except for the special "or-empty" rule described beyond)
+which are checked against the widget's value when the user
+changes it. This way you can prevent the user from entering illegal data
+at a high level.
 
 Once the user entered illegal data, the old (legal) value is restored
 and a corresponding error dialog pops up.
@@ -214,64 +264,85 @@ hashes. Please take a look at Gtk2::Ex::FormFactory::Rules' source code
 for a recent list of builtin rules:
 
   my %RULES = (
-    "empty"                     => sub { $_[0] eq ''                    },
-    "not-empty"                 => sub { $_[0] ne ''                    },
+    "empty"			=> sub { $_[0] eq ''			},
+    "not-empty"			=> sub { $_[0] ne ''			},
 
-    "alphanumeric"              => sub { $_[0] =~ /^\w+$/               },
-    "identifier"                => sub { $_[0] =~ /^[a-z_]\w*$/i        },
-    "no-whitespace"             => sub { $_[0] !~ /\s/                  },
+    "alphanumeric"		=> sub { $_[0] =~ /^\w+$/		},
+    "identifier"		=> sub { $_[0] =~ /^[a-z_]\w*$/i	},
+    "no-whitespace"		=> sub { $_[0] !~ /\s/			},
 
-    "integer"                   => sub { $_[0] =~ /^[+-]?\d+$/          },
-    "positive-integer"          => sub { $_[0] =~ /^[+]?\d+$/           },
-    "negative-integer"          => sub { $_[0] =~ /^-\d+$/              },
+    "zero"                      => sub { $_[0] =~ /^0(\.0*)?$/		},
+    "not-zero"			=> sub { $_[0] !~ /^0(\.0*)?$/		},
 
-    "float"                     => sub { $_[0] =~ /^[+-]?\d+(\.\d+)?$/  },
-    "positive-float"            => sub { $_[0] =~ /^[+]?\d+(\.\d+)?$/   },
-    "negative-float"            => sub { $_[0] =~ /^-\d+(\.\d+)?$/      },
+    "integer"			=> sub { $_[0] =~ /^[+-]?\d+$/		},
+    "positive-integer"		=> sub { $_[0] =~ /^[+]?\d+$/ 		},
+    "negative-integer"		=> sub { $_[0] =~ /^-\d+$/		},
 
-    "odd"                       => sub {   $_[0] % 2                    },
-    "even"                      => sub { !($_[0] % 2)                   },
+    "float"			=> sub { $_[0] =~ /^[+-]?\d+(\.\d+)?$/	},
+    "positive-float"		=> sub { $_[0] =~ /^\+?\d+(\.\d+)?$/	},
+    "negative-float"		=> sub { $_[0] =~ /^-\d+(\.\d+)?$/	},
+
+    "odd"			=> sub {   $_[0] % 2			},
+    "even"			=> sub { !($_[0] % 2)			},
     
-    "file-executable"           => sub { (-f $_[0] && -x $_[0])         },
-    "file-writable"             => sub { (-f $_[0] && -w $_[0])         },
-    "file-readable"             => sub { (-f $_[0] && -r $_[0])         },
+    "file-executable"		=> sub { (!-d $_[0] && -x $_[0])	},
+    "file-writable"		=> sub { (!-d $_[0] && -w $_[0])	},
+    "file-readable"		=> sub { (!-d $_[0] && -r $_[0])	},
     
-    "dir-writable"              => sub { (-d $_[0] && -w $_[0])         },
-    "dir-readable"              => sub { (-d $_[0] && -r $_[0])         },
+    "dir-writable"		=> sub { (-d $_[0] && -w $_[0])		},
+    "dir-readable"		=> sub { (-d $_[0] && -r $_[0])		},
 
-    "parent-dir-writable"       => sub { -w dirname($_[0])              },
-    "parent-dir-readable"       => sub { -r dirname($_[0])              },
+    "parent-dir-writable"	=> sub { -w dirname($_[0]) 		},
+    "parent-dir-readable"	=> sub { -r dirname($_[0])		},
+
+    "executable-command"	=> "_rule_result",
   );
 
   my %RULES_MESSAGES = (
-    "empty"                     => "{field} is not empty.",
-    "not-empty"                 => "{field} is empty.",
+    "empty"			=> "{field} is not empty.",
+    "not-empty"			=> "{field} is empty.",
 
-    "alphanumeric"              => "{field} is not alphanumeric.",
-    "identifier"                => "{field} is no identifier.",
-    "no-whitespace"             => "{field} contains whitespace.",
+    "alphanumeric"		=> "{field} is not alphanumeric.",
+    "identifier"		=> "{field} is no identifier.",
+    "no-whitespace"		=> "{field} contains whitespace.",
 
-    "integer"                   => "{field} is no integer.",
-    "positive-integer"          => "{field} is no positive integer.",
-    "negative-integer"          => "{field} is no negative integer.",
+    "zero"			=> "{field} is not zero",
+    "not-zero"			=> "{field} is zero",
 
-    "float"                     => "{field} is no float.",
-    "positive-float"            => "{field} is no positive float.",
-    "negative-float"            => "{field} is no negativ float.",
+    "integer"			=> "{field} is no integer.",
+    "positive-integer"		=> "{field} is no positive integer.",
+    "negative-integer"		=> "{field} is no negative integer.",
 
-    "odd"                       => "{field} is not odd.",
-    "even"                      => "{field} is not even.",
+    "float"			=> "{field} is no float.",
+    "positive-float"		=> "{field} is no positive float.",
+    "negative-float"		=> "{field} is no negativ float.",
+
+    "odd"			=> "{field} is not odd.",
+    "even"			=> "{field} is not even.",
     
-    "file-executable"           => "{field} is no file and/or not executable.",
-    "file-writable"             => "{field} is no file and/or not writable.",
-    "file-readable"             => "{field} is no file and/or not readable.",
+    "file-executable"		=> "{field} is no file and/or not executable.",
+    "file-writable"		=> "{field} is no file and/or not writable.",
+    "file-readable"		=> "{field} is no file and/or not readable.",
     
-    "dir-writable"              => "{field} is no directory and/or not writable.",
-    "dir-readable"              => "{field} is no directory and/or not readable.",
+    "dir-writable"		=> "{field} is no directory and/or not writable.",
+    "dir-readable"		=> "{field} is no directory and/or not readable.",
 
-    "parent-dir-writable"       => "{field} has no writable parent directory.",
-    "parent-dir-readable"       => "{field} has no readable parent directory.",
+    "parent-dir-writable"	=> "{field} has no writable parent directory.",
+    "parent-dir-readable"	=> "{field} has no readable parent directory.",
   );
+
+=head2 Special "or-empty" rule
+
+There is a special rule called "or-empty". If this rule occurs everywhere
+in the list of rules and the actual value is empty, rule checking quits
+immediately with a positive result, discarding error states from earlier
+rules.
+
+Example: [ "positive-integer", "or-empty" ]
+
+All rules are combined with "and", which is usually sufficient, but without
+this special "or-empty" case the common case optionally empty fields 
+can't be done.
 
 =head1 AUTHORS
 

@@ -26,6 +26,7 @@ use strict;
 @Gtk2::Ex::FormFactory::Timestamp::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::ToggleButton::ISA 	= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::VBox::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
+@Gtk2::Ex::FormFactory::VSeparator::ISA 	= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::Window::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::YesNo::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 

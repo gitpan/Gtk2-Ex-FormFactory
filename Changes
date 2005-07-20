@@ -1,6 +1,57 @@
-$Id: Changes,v 1.10 2005/07/11 15:48:01 joern Exp $
+$Id: Changes,v 1.12 2005/07/20 21:13:46 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.56 Wed Jul 20, 2005, joern
+	Features:
+	- Gtk2::Ex::FormFactory::Rules:
+	  - added 'zero', 'non-zero', 'positive-zero-integer',
+	    'negative-zero-integer', 'positive-zero-float',
+	    'negative-zero-float' rules.
+	  - added special 'or-empty' rule, refer to the man page
+	    for details.
+	  - added 'executable-command' rule.
+	- Gtk2::Ex::FormFactory::Context:
+	  - added get_object_attr() helper method to retrieve
+	    a specific application object attribute
+	  - added 'accessor' option to the ->add_object() method
+	- Gtk2::Ex::FormFactory::Widget:
+	  - added 'label_for' attribute, so auto-generated labels
+	    can be bound to specific widgets as well.
+	  - added 'avtive_cond' and 'active_depends' attributes
+	    for direct activity control of the widget.
+	  - added 'changed_hook_after'
+	- Gtk2::Ex::FormFactory::Popup:
+	  - added 'items' attribute for static popup content
+	- Gtk2::Ex::FormFactory::Popup:
+	  - default 'scale' to 1 of no other scaling options
+	    are given, images would be invisible without this.
+	- Gtk2::Ex::FormFactory:
+	  - added 'with_cancel' option to the ->open_confirm_window()
+	    helper method
+	- Gtk2::Ex::FormFactory::CheckButtonGroup:
+	  - dimensions can be configured through application
+	    object attributes. Row and/or column labels may
+	    be added.
+	- Gtk2::Ex::FormFactory::Label:
+	  - added bold option.
+	- Gtk2::Ex::FormFactory::Layout:
+	  - center button icons/labels.
+
+	Bugfixes:
+	- Gtk2::Ex::FormFactory::Combo: rule checking didn't work.
+	- Gtk2::Ex::FormFactory::Widget: rule checking in synchronized
+	  FormFactories didn't work if no object attribute was
+	  associated with the widget
+	- Gtk2::Ex::FormFactory::Table: due to missing outer whitespace
+	  truncation parsing of some table layouts was messed up.
+	- Gtk2::Ex::FormFactory::List: dropped "selects_object"
+	  feature introduced in 0.55 because this can be easily done
+	  by defining attribute dependencies.
+	- Gtk2::Ex::FormFactory::Layout: setting a label group
+	  didn't work for Label widgets, only for implicite labels
+	  set through the Widget's label attribute.
+	- Gtk2::Ex::FormFactory::Loader: VSeparator setup was missing.
 
 0.55 Mon Jul 11, 2005, joern
 	Features:

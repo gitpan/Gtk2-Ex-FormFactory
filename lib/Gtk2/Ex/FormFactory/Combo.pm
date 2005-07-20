@@ -59,20 +59,28 @@ sub backup_widget_value {
 	my $self = shift;
 	
 	$self->set_backup_widget_value ($self->get_gtk_widget->entry->get_text);
-	
+
 	1;
 }
 
 sub restore_widget_value {
 	my $self = shift;
 	
-	$self->get_gtk_widget->entry->set_text($self->get_object_value);
+	$self->get_gtk_widget->entry->set_text($self->get_backup_widget_value);
 	
 	1;
 }
 
+sub get_gtk_tip_widgets {
+	[ shift->get_gtk_widget->entry ];
+}
+
+sub get_gtk_check_widget {
+	shift->get_gtk_widget->entry;
+}
+
 sub get_widget_check_value {
-	$_[0]->get_gtk_widget->entry->get_text;
+	$_[0]->get_gtk_check_widget->get_text;
 }
 
 sub connect_changed_signal {
@@ -83,10 +91,6 @@ sub connect_changed_signal {
 	);
 	
 	1;
-}
-
-sub get_gtk_tip_widgets {
-	[ shift->get_gtk_parent_widget->entry ];
 }
 
 1;

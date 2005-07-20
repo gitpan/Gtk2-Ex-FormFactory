@@ -9,19 +9,22 @@ sub has_label { shift->get_object eq '' }
 
 sub get_with_markup		{ shift->{with_markup}			}
 sub get_for			{ shift->{for}				}
+sub get_bold			{ shift->{bold}				}
 
 sub set_with_markup		{ shift->{with_markup}		= $_[1]	}
 sub set_for			{ shift->{for}			= $_[1]	}
+sub set_bold			{ shift->{bold}			= $_[1]	}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my ($with_markup, $for) = @par{'with_markup','for'};
+	my ($with_markup, $for, $bold) = @par{'with_markup','for','bold'};
 
 	my $self = $class->SUPER::new(@_);
 	
 	$self->set_with_markup($with_markup);
 	$self->set_for($for);
+	$self->set_bold($bold);
 	
 	return $self;
 }
@@ -31,6 +34,8 @@ sub object_to_widget {
 
 	if ( $self->get_with_markup ) {
 		$self->get_gtk_widget->set_markup($self->get_object_value);
+	} elsif ( $self->get_bold ) {
+		$self->get_gtk_widget->set_markup("<b>".$self->get_object_value."</b>");
 	} else {
 		$self->get_gtk_widget->set_text($self->get_object_value);
 	}
@@ -57,8 +62,9 @@ Gtk2::Ex::FormFactory::Label - A Label in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::Label->new (
-    with_markup => Should the label render with markup?
-    for         => Name for Widget this label belongs to
+    with_markup => Should the label render with markup?,
+    bold        => Should the label render as bold text?,
+    for         => Name for Widget this label belongs to,
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -96,6 +102,11 @@ was built.
 If this is set to TRUE the Label may contain basic HTML markup,
 which is rendered accordingly. Refer to the "Pango Text Attribute Markup"
 chapter in the Gtk+ documentation for details.
+
+=item B<bold> = BOOL [optional]
+
+If set to TRUE the label is implicitly renderd as markup set
+into E<lt>b>...E<lt>/b> tags.
 
 =item B<for> = SCALAR [optional]
 

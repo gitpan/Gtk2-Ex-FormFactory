@@ -45,11 +45,6 @@ sub build_widget {
 		);
 	}
 
-	if ( $widget->get_customize_hook ) {
-		my $cb = $widget->get_customize_hook;
-		&$cb($widget->get_gtk_widget);
-	}
-
 	my $tip = !$widget->isa_container ? $widget->get_tip : "";
 	if ( $tip ) {
 		$tip .= "." if $tip !~ /\.\s*$/;
@@ -75,6 +70,11 @@ sub build_widget {
 			   ->get_gtk_size_groups->{$group} ||=
 			Gtk2::SizeGroup->new("horizontal");
 		$gtk_size_group->add_widget ($widget->get_gtk_widget);
+	}
+
+	if ( $widget->get_customize_hook ) {
+		my $cb = $widget->get_customize_hook;
+		&$cb($widget->get_gtk_widget, $widget);
 	}
 
 	1;
@@ -131,6 +131,11 @@ sub create_label_widget {
 	}
 	$gtk_label->set ( yalign => 0.5, xalign => 0 );
 
+	if ( $widget->get_label_for ) {
+		my $for_widget = $widget->lookup_widget($widget->get_label_for);
+		$for_widget->set_gtk_label_widget($gtk_label);
+	}
+
 	return $gtk_label;
 }
 
@@ -167,7 +172,7 @@ sub build_window {
 
 	if ( $closed_hook ) {
 		$gtk_window->signal_connect (
-			destroy => $closed_hook
+			delete_event => $closed_hook
 		);
 	}
 	
@@ -366,6 +371,15 @@ sub build_label {
 		$for_widget->set_gtk_label_widget($gtk_label);
 	}
 
+	if ( $label->get_label_group ) {
+		my $group = $label->get_label_group;
+		my $gtk_size_group =
+		    $label->get_form_factory
+			  ->get_gtk_size_groups->{$group} ||=
+			Gtk2::SizeGroup->new("horizontal");
+		$gtk_size_group->add_widget ($gtk_label);
+	}
+
 	1;
 }
 
@@ -506,7 +520,9 @@ sub build_button {
 		$hbox->pack_start($image, 0, 1, 0);
 		$hbox->pack_start($label, 0, 1, 0);
 		$gtk_button = Gtk2::Button->new;
-		$gtk_button->add($hbox);
+		my $align = Gtk2::Alignment->new (0.5, 0.5, 0, 0);
+		$align->add($hbox);
+		$gtk_button->add($align);
 	} elsif ( $stock and not $label ) {
 		$gtk_button = Gtk2::Button->new_from_stock($stock);
 	} else {
@@ -712,7 +728,8 @@ sub build_dialog_buttons {
 		    $default_handler = &$clicked_hook_before("ok")
 			    if $clicked_hook_before;
 		    return if not $default_handler;
-		    $dialog_buttons->get_form_factory->ok;
+		    $dialog_buttons->get_form_factory->ok
+		    	if $dialog_buttons->get_form_factory;
 		    &$clicked_hook_after("ok")
 			    if $clicked_hook_after;
 		},

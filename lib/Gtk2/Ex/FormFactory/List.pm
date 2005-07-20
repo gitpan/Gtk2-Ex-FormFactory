@@ -9,7 +9,6 @@ sub get_type { "list" }
 
 sub get_attr_select		{ shift->{attr_select}			}
 sub get_attr_select_column	{ shift->{attr_select_column}		}
-sub get_selects_object		{ shift->{selects_object}		}
 sub get_update_selection_only	{ shift->{update_selection_only}	}
 sub get_columns			{ shift->{columns}			}
 sub get_types			{ shift->{types}			}
@@ -22,7 +21,6 @@ sub get_no_header		{ shift->{no_header}			}
 
 sub set_attr_select		{ shift->{attr_select}		= $_[1]	}
 sub set_attr_select_column	{ shift->{attr_select_column}	= $_[1]	}
-sub set_selects_object		{ shift->{selects_object}	= $_[1]	}
 sub set_update_selection_only	{ shift->{update_selection_only}= $_[1]	}
 sub set_columns			{ shift->{columns}		= $_[1]	}
 sub set_types			{ shift->{types}		= $_[1]	}
@@ -68,8 +66,8 @@ sub new {
 	my %par = @_;
 	my  ($attr_select, $columns, $types, $editable, $visible) =
 	@par{'attr_select','columns','types','editable','visible'};
-	my  ($update_selection_only, $selection_mode, $selects_object) =
-	@par{'update_selection_only','selection_mode','selects_object'};
+	my  ($update_selection_only, $selection_mode) =
+	@par{'update_selection_only','selection_mode'};
 	my  ($attr_select_column, $no_header) =
 	@par{'attr_select_column','no_header'};
 
@@ -79,7 +77,6 @@ sub new {
 	
 	$self->set_attr_select	  	($attr_select);
 	$self->set_attr_select_column	($attr_select_column);
-	$self->set_selects_object	($selects_object);
 	$self->set_columns		($columns);
 	$self->set_visible		($visible);
 	$self->set_types		($types);
@@ -136,10 +133,6 @@ sub object_to_widget {
 		}
 	}
 
-	if ( $self->get_selects_object && @{$object_value} == 0 ) {
-		$self->get_proxy->set_attr ( $self->get_attr_select => undef );
-	}
-
 	1;
 }
 
@@ -164,16 +157,6 @@ sub widget_to_object {
 		$self->get_proxy->set_attr (
 			$self->get_attr_select, \@sel
 		); 
-
-		if ( $self->get_selects_object ) {
-			my $proxy = $self->get_context->get_proxy($self->get_selects_object);
-			#-- aggregation updates are handled in Context->update_object_attr_widgets();
-			if ( ! $proxy->get_aggregated_by ) {
-				$self->get_context->update_object_widgets (
-					$self->get_selects_object
-				);
-			}
-		}
 	}
 
 	1;
@@ -257,7 +240,6 @@ Gtk2::Ex::FormFactory::List - A List in a FormFactory framework
   Gtk2::Ex::FormFactory::List->new (
     attr_select        => Attribute name for selection tracking,
     attr_select_column => Use this column's value to store in attr_select
-    selects_object     => Name of the object selected by this list,
     columns            => Titles of the list columns,
     types              => Types of the list columns,
     editable           => Which columns are editable?,
@@ -314,16 +296,6 @@ passed with B<attr_select>. Specify a column number here and the
 corresponding values will be stored instead (e.g. an internal
 database ID of an invisible column). If you use this you may use
 the B<select_row_by_attr()> method as well, which is described below.
-
-=item B<selects_object> = SCALAR [optional]
-
-If this list is an index to select a specific object out of a list
-of objects (e.g. an index of all tracks of a music CD) specifiy the
-Context's name of this object here. This way the corresponding object
-is updated automatically if the selection changes. You should make
-use of the B<aggregated_by> attribute when adding the object to the
-Context to make this work seamlessly. Please refer to
-Gtk2::Ex::FormFactory::Context for details.
 
 =item B<columns> = ARRAYREF [mandatory]
 

@@ -6,10 +6,27 @@ use base qw( Gtk2::Ex::FormFactory::Widget );
 
 sub get_type { "popup" }
 
+sub get_items			{ shift->{items}			}
+sub set_items			{ shift->{items}		= $_[1]	}
+
+sub new {
+	my $class = shift;
+	my %par = @_;
+	my ($items) = $par{'items'};
+
+	my $self = $class->SUPER::new(@_);
+	
+	$self->set_items($items);
+	
+	return $self;
+}
+
+
 sub object_to_widget {
 	my $self = shift;
 
-	my $content = $self->get_proxy->get_attr_list($self->get_attr, $self->get_name);
+	my $content = $self->get_items ||
+		      $self->get_proxy->get_attr_list($self->get_attr, $self->get_name);
 	my $value   = $self->get_object_value;
 
 	my $gtk_popup      = $self->get_gtk_widget;
@@ -51,14 +68,6 @@ sub object_to_widget {
 			$history = $i if $value eq $c->[0];
 			++$i;
 		}
-	}
-
-	if ( $i == 0 ) {
-		$self->set_widget_activity(0);
-	} else {
-		$self->set_widget_activity(1)
-			if $self->get_proxy($self->get_object)
-			        ->get_attr_activity($self->get_attr);
 	}
 
 	$gtk_popup->set_history ($history);
@@ -170,16 +179,32 @@ for details.
 
 =head1 ATTRIBUTES
 
-This module has no additional attributes over those derived
-from Gtk2::Ex::FormFactory::Widget.
+Attributes are handled through the common get_ATTR(), set_ATTR()
+style accessors, but they are mostly passed once to the object
+constructor and must not be altered after the associated FormFactory
+was built.
+
+=over 4
+
+=item B<items> = ARRAYREF|HASHREF [optional]
+
+This attribute takes a static list of popup items, if the
+popup shouldn't be controlled dynamically by an associated
+application object. Refer to the next chapter for details
+of the data structure applied here.
+
+=back
 
 =head1 REQUIREMENTS FOR ASSOCIATED APPLICATION OBJECTS
 
 Application objects represented by a Gtk2::Ex::FormFactory::Popup
-must define additional methods. The naming of the methods listed
-beyond uses the standard B<get_> prefix for the attribute read
-accessor. B<ATTR> needs to be replaced by the actual name of
-the attribute associated with the widget.
+must define additional methods, unless their content is static
+by setting B<items>.
+
+The naming of the methods listed beyond uses the standard
+B<get_> prefix for the attribute read accessor. B<ATTR> needs to
+be replaced by the actual name of the attribute associated with
+the widget.
 
 =over 4
 
