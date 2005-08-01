@@ -14,7 +14,11 @@ sub object_to_widget {
 	#-- in the Gtk2 module. But it works with a Timeout or Idle
 	#-- handler...
 	Glib::Idle->add (
-	    sub { $self->get_gtk_widget->set ( page => $self->get_object_value ); 0; }
+	    sub {
+	    	$self->get_gtk_widget->set ( page => $self->get_object_value )
+			if defined $self->get_object_value;
+		0;
+	    }
 	);
 
 	1;

@@ -1,6 +1,34 @@
-$Id: Changes,v 1.12 2005/07/20 21:13:46 joern Exp $
+$Id: Changes,v 1.17 2005/08/01 19:00:20 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.57 Mon Aug 1, 2005, joern
+	Features:
+	- Gtk2::Ex::FormFactory::Window:
+	  - on window close FormFactory->close is called automatically
+	    if the Window is the 1st child of the FormFactory,
+	    unless a closed_hook is set. Thanks to Kaare Rasmussen
+	    for the hint.
+	  - added 'quit_on_close' option, which quits the Gtk2
+	    main loop as well in that case. 
+	- Gtk2::Ex::FormFactory::List:
+	  - scroll to selected row only on first show, to prevent
+	    unneccessary scrolling.
+	  - trigger selection dependency updates only when the
+	    selection really changed (but only for Lists with
+	    attr_select and attr_select_column set, because
+	    otherwise a selection change can't be detected
+	    safely)
+	- Documentation updates & fixes
+
+	Bugfixes:
+	- Gtk2::Ex::FormFactory::Layout: setting 'scrollbars'
+	  for non-scrollable widgets didn't work
+	- Gtk2::Ex::FormFactory::Notebook: restore selected page
+	  only if an object attribute is associated with the
+	  Widget.
+	- Gtk2::Ex::FormFactory: POD typo fixed, thanks for the
+	  report to Christian Marillat.
 
 0.56 Wed Jul 20, 2005, joern
 	Features:

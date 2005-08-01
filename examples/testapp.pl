@@ -54,6 +54,9 @@ main: {
 				return \@slist_data;
 			},
 		},
+		attr_depends_href => {
+			selected_disc => "selected_discs_idx",
+		}
 	);
 
 	$context->add_object (
@@ -178,7 +181,6 @@ main: {
 			        expand      => 1,
 				attr        => "database.discs",
 				attr_select => "database.selected_discs_idx",
-				selects_object => "disc",
 				label       => "Album Selection",
 				tip         => "Select an entry for modification",
 				columns     => [ "Artist", "Album" ],

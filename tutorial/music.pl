@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: music.pl,v 1.7 2005/07/20 21:13:39 joern Exp $
+# $Id: music.pl,v 1.8 2005/07/31 11:22:19 joern Exp $
 
 use strict;
 
@@ -206,10 +206,7 @@ sub build_main_window {
 		    	default_width  => 640,
 			default_height => 640,
 		    },
-		    closed_hook => sub {
-			$self->get_form_factory->close;
-			Gtk2->main_quit;
-		    },
+		    quit_on_close => 1,
 		    content => [
 		        $self->build_menu,
 		    	Gtk2::Ex::FormFactory::Table->new (

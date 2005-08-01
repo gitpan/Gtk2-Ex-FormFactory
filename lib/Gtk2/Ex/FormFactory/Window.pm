@@ -7,17 +7,22 @@ use base qw( Gtk2::Ex::FormFactory::Container );
 sub get_type { "window" }
 
 sub get_closed_hook		{ shift->{closed_hook}			}
+sub get_quit_on_close		{ shift->{quit_on_close}		}
+
 sub set_closed_hook		{ shift->{closed_hook}		= $_[1]	}
+sub set_quit_on_close		{ shift->{quit_on_close}	= $_[1]	}
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my ($closed_hook) = $par{'closed_hook'};
+	my  ($closed_hook, $quit_on_close) =
+	@par{'closed_hook','quit_on_close'};
 
 	my $self = $class->SUPER::new(@_);
 	
 	$self->set_closed_hook($closed_hook);
-	
+	$self->set_quit_on_close($quit_on_close);
+
 	return $self;
 }
 
@@ -41,7 +46,8 @@ Gtk2::Ex::FormFactory::Window - A Window in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::Window->new (
-    closed_hook => Code reference to be called on window close,
+    closed_hook   => Code reference to be called on window close,
+    quit_on_close => Quit Gtk2 mainloop if windows is closed
     ...
     Gtk2::Ex::FormFactory::Container attributes
     Gtk2::Ex::FormFactory::Widget attributes
@@ -86,6 +92,15 @@ was built.
 This code reference is called, when the window gets destroyed, e.g.
 because the user closes the window using the window manager's close
 button, or the program calls GtkWindow->destroy directly.
+
+If no B<closed_hook> is set an internal hook is connected which
+closes the Gtk2::Ex::FormFactory of this Window.
+
+=item B<quit_on_close> = BOOL [optional]
+
+If this is set to true the Gtk2 mainloop quits when the window
+is closed and no B<closed_hook> is set. If you use a B<closed_hook>
+quitting the mainloop is up to you.
 
 =back
 

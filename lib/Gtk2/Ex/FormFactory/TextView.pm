@@ -103,12 +103,6 @@ __END__
 
 =head1 NAME
 
-
-TODO TODO TODO
-
-
-
-
 Gtk2::Ex::FormFactory::TextView - A TextView in a FormFactory framework
 
 =head1 SYNOPSIS

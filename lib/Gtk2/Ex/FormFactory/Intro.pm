@@ -110,12 +110,14 @@ Create a Gtk2::Ex::FormFactory::Context object and register
 all your objects, which should be presented/changed by the
 GUI, here:
   
-  my $context = Gtk2::Ex::FormFactory::Context->new (
-    config => $config_object
+  my $context = Gtk2::Ex::FormFactory::Context->new;
+  $context->add_object (
+    name   => "config",
+    object => $config_object
   );
 
 $config_object has at least the following methods in
-our example:
+our example below:
 
   - get_data_dir()
   - get_selected_page()

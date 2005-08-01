@@ -18,6 +18,7 @@ sub get_selection_mode		{ shift->{selection_mode}		}
 sub get_is_editable		{ shift->{is_editable}			}
 sub get_selection_backup	{ shift->{selection_backup}		}
 sub get_no_header		{ shift->{no_header}			}
+sub get_last_applied_selection	{ shift->{last_applied_selection}	}
 
 sub set_attr_select		{ shift->{attr_select}		= $_[1]	}
 sub set_attr_select_column	{ shift->{attr_select_column}	= $_[1]	}
@@ -30,6 +31,7 @@ sub set_selection_mode		{ shift->{selection_mode}	= $_[1]	}
 sub set_is_editable		{ shift->{is_editable}		= $_[1]	}
 sub set_selection_backup	{ shift->{selection_backup}	= $_[1]	}
 sub set_no_header		{ shift->{no_header}		= $_[1]	}
+sub set_last_applied_selection	{ shift->{last_applied_selection}= $_[1]}
 
 sub has_additional_attrs	{ [ "select" ] 				}
 
@@ -98,6 +100,8 @@ sub object_to_widget {
 
 	my $object_value = $self->get_object_value || [];
 
+	my $slist_was_empty = ! scalar(@{$self->get_gtk_widget->{data}});
+
 	if ( not $self->get_update_selection_only ) {
 		$self->get_gtk_widget
 		     ->set_data_array($object_value);
@@ -108,29 +112,43 @@ sub object_to_widget {
 	}
 
 	if ( $self->get_attr_select ) {
-		my $idx = $self->get_proxy->get_attr (
+		my $proxy = $self->get_proxy;
+		my $idx = $proxy->get_attr (
 			$self->get_attr_select
 		);
+		my $sel;
+		$sel = join("\t",@{$idx}) if $idx;
+		$self->set_last_applied_selection($sel);
 		my $gtk_simple_list = $self->get_gtk_widget;
 		if ( defined $idx and @{$idx} and @{$self->get_gtk_widget->{data}} != 0 ) {
 			if ( defined $self->get_attr_select_column ) {
 				my $i = 0;
-				my $col = $self->get_attr_select_column;
+				my $col  = $self->get_attr_select_column;
 				my $data = $self->get_gtk_widget->{data};
 				my %col2idx = map { ($_->[$col], $i++) } @{$data};
 				my @idx = map { $col2idx{$_} } @{$idx};
 				$idx = \@idx;
 			}
-			$gtk_simple_list->select(@{$idx});
-			$gtk_simple_list->scroll_to_cell(
-				Gtk2::TreePath->new_from_string($idx->[0]),
-				($gtk_simple_list->get_columns)[0],
-				0, 0
-			);
 
+			if ( @{$idx} && defined $idx->[0] ) {
+				$gtk_simple_list->select(@{$idx});
+				$gtk_simple_list->scroll_to_cell(
+					Gtk2::TreePath->new_from_string($idx->[0]),
+					($gtk_simple_list->get_columns)[0],
+					0, 0
+				) if $slist_was_empty;
+			} else {
+				$gtk_simple_list->get_selection->unselect_all;
+				$proxy->set_attr($self->get_attr_select, undef);
+			}
 		} else {
 			$gtk_simple_list->get_selection->unselect_all;
 		}
+
+		Glib::Idle->add (sub {
+			$self->widget_selection_to_object;
+			0;
+		});
 	}
 
 	1;
@@ -144,20 +162,29 @@ sub widget_to_object {
 		my @value = @{$data};
 		$self->set_object_value (\@value);
 	}
+
+	$self->widget_selection_to_object
+		if $self->get_attr_select;
 	
-	if ( $self->get_attr_select ) {
-		my @sel = $self->get_gtk_widget->get_selected_indices;
+	1;
+}
 
-		if ( defined $self->get_attr_select_column ) {
-			my $column = $self->get_attr_select_column;
-			my $data   = $self->get_gtk_widget->{data};
-			$_ = $data->[$_][$column] for @sel;
-		}
-
-		$self->get_proxy->set_attr (
-			$self->get_attr_select, \@sel
-		); 
+sub widget_selection_to_object {
+	my $self = shift;
+	
+	my @sel = $self->get_gtk_widget->get_selected_indices;
+	if ( defined $self->get_attr_select_column ) {
+		my $column = $self->get_attr_select_column;
+		my $data   = $self->get_gtk_widget->{data};
+		$_ = $data->[$_][$column] for @sel;
+		my $sel = join("\t",@sel);
+		return if $sel eq $self->get_last_applied_selection;
+		$self->set_last_applied_selection($sel);
 	}
+
+	$self->get_proxy->set_attr (
+		$self->get_attr_select, \@sel
+	); 
 
 	1;
 }

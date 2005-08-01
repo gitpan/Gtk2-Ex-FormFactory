@@ -57,7 +57,14 @@ sub build_widget {
 	my $scrollbars = $widget->get_scrollbars;
 	if ( $scrollbars ) {
 		my $sw = Gtk2::ScrolledWindow->new;
-		$sw->add($widget->get_gtk_parent_widget);
+		my $can_scroll = eval { 
+		    $widget->get_gtk_parent_widget->get("hadjustment")
+		};
+		if ( $can_scroll ) {
+			$sw->add($widget->get_gtk_parent_widget);
+		} else {
+			$sw->add_with_viewport($widget->get_gtk_parent_widget);
+		}
 		$sw->set_policy(@{$scrollbars});
 		$widget->set_gtk_parent_widget($sw);
 	}
@@ -174,6 +181,17 @@ sub build_window {
 		$gtk_window->signal_connect (
 			delete_event => $closed_hook
 		);
+	} else {
+		if ( $window->get_form_factory->get_content->[0] eq $window ) {
+			$gtk_window->signal_connect (
+				delete_event => sub {
+				    $window->get_form_factory->close;
+				    Gtk2->main_quit
+				        if $window->get_quit_on_close;
+				    1;
+				},
+			);
+		}
 	}
 	
 	if ( $window->get_parent->isa("Gtk2::Ex::FormFactory") ) {
@@ -361,6 +379,8 @@ sub build_label {
 	my $gtk_label = Gtk2::Label->new;
 	$gtk_label->set_text   ($label->get_label) if $label->get_label;
 	$gtk_label->set_markup ($label->get_label) if $label->get_with_markup;
+	$gtk_label->set_markup ("<b>".$label->get_label."</b>")
+		if $label->get_label && $label->get_bold;
 
 	$gtk_label->set ( xalign => 0, yalign => 0.5 );
 

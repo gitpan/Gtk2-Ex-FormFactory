@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.56";
+$VERSION = "0.57";
 
 use strict;
 
@@ -527,7 +527,7 @@ This is a convenience method to find a filename inside Perl's
 inside your module namespace and want to retreive the actual
 filenames of them.
 
-=item $form_factory->B<change_mouse_cursor ( $type [, $gtk_widget] )
+=item $form_factory->B<change_mouse_cursor> ( $type [, $gtk_widget] )
 
 This convenience method changes the mouse cursor of the
 window of this FormFactory, or of an arbitrary widget passed

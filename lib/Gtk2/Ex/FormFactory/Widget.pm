@@ -983,7 +983,11 @@ L<Gtk2::Ex::FormFactory::Layout> class to control the layout.
 =item B<active_cond> = CODEREF() [optional]
 
 Widget's activity state (visible/sensitive) is controlled by this
-condition resp. the return value of this code reference.
+condition resp. the return value of this code reference. Use this
+only if your widget isn't actually bound to any application object
+attribute, since widget activity is better controlled on the
+Context level in that case. Please refer to the documentation of
+Gtk2::Ex::FormFactory::Context->add_object for details about this.
 
 =item B<active_depends> = SCALAR | ARRAYREF [optional]
 
@@ -1212,6 +1216,20 @@ method for your widget to it. If your widget is a container you also
 need to implement at least the generic $layouter->B<add_widget_to_TYPE>
 method. For details about this please refer to the documentation
 of Gtk2::Ex::FormFactory::Layout.
+
+Nevertheless, if your widget is very specific to your application, e.g.
+because it displays a very specific data structure, creating your
+own Layout module just for that purpose is somewhat involved. In
+that case you can implement this method:
+
+=over 4
+
+=item $self->B<build_widget>()
+
+If implemented this method is called to actually create the Gtk2
+widgets for your Gtk2::Ex::FormFactory widget.
+
+=back
 
 =head1 AUTHORS
 
