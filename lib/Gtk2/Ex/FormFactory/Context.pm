@@ -3,7 +3,7 @@ package Gtk2::Ex::FormFactory::Context;
 use strict;
 use Carp;
 
-use Gtk2::Ex::FormFactory::Proxy;
+use Gtk2::Ex::FormFactory::ProxyBuffered;
 
 sub get_proxies_by_name		{ shift->{proxies_by_name}		}
 sub get_widgets_by_attr		{ shift->{widgets_by_attr}		}
@@ -55,8 +55,8 @@ sub add_object {
 	@par{'name','object','set_prefix','get_prefix','attr_activity_href'};
 	my  ($attr_depends_href, $attr_accessors_href, $update_hook) =
 	@par{'attr_depends_href','attr_accessors_href','update_hook'};
-	my  ($aggregated_by, $accessor) =
-	@par{'aggregated_by','accessor'};
+	my  ($aggregated_by, $accessor, $buffered) =
+	@par{'aggregated_by','accessor','buffered'};
 
 	$set_prefix ||= $self->get_default_set_prefix;
 	$get_prefix ||= $self->get_default_get_prefix;
@@ -96,7 +96,10 @@ sub add_object {
 		$self->get_aggregated_by_href->{$aggregated_by}->{$name} = 1;
 	}
 
-	return $proxies_by_name->{$name} = Gtk2::Ex::FormFactory::Proxy->new (
+	my $proxy_class = $buffered ? "Gtk2::Ex::FormFactory::ProxyBuffered" :
+				      "Gtk2::Ex::FormFactory::Proxy";
+
+	return $proxies_by_name->{$name} = $proxy_class->new (
 		    context       	=> $self,
 		    name          	=> $name,
 		    object        	=> $object,
@@ -128,9 +131,13 @@ sub register_widget {
 	my ($widget) = @_;
 	
 	if ( $widget->get_active_depends ) {
-		$self->get_widget_activity_href
-		     ->{$widget->get_active_depends}
-		     ->{$widget->get_name} = $widget;
+		my $dep = $widget->get_active_depends;
+		$dep = [ $dep ] unless ref $dep eq 'ARRAY';
+		for ( @{$dep} ) {
+		    $self->get_widget_activity_href
+			 ->{$_}
+			 ->{$widget->get_name} = $widget;
+		}
 	}
 	
 	my $object_attr =
@@ -156,8 +163,9 @@ sub register_widget {
 		foreach my $add_attr ( @{$add_attrs} ) {
 			my $get_attr_name_method = "get_attr_$add_attr";
 			my $attr = $widget->$get_attr_name_method();
+			$attr = "$object.$attr" unless $attr =~ /\./;
 			$self->get_widgets_by_attr
-			     ->{"$object.$attr"}
+			     ->{$attr}
 			     ->{$widget_full_name} = $widget;
 		}
 	}	
@@ -200,9 +208,13 @@ sub deregister_widget {
 		    ->{$widget_full_name};
 
 	if ( $widget->get_active_depends ) {
-		delete $self->get_widget_activity_href
-		     ->{$widget->get_active_depends}
-		     ->{$widget->get_name};
+		my $dep = $widget->get_active_depends;
+		$dep = [ $dep ] unless ref $dep eq 'ARRAY';
+		for ( @{$dep} ) {
+		    delete $self->get_widget_activity_href
+			 ->{$_}
+			 ->{$widget->get_name};
+		}
 	}
 
 	if ( $widget->has_additional_attrs ) {
@@ -656,6 +668,11 @@ you can use a list reference:
       ],
   },
 
+=item B<buffered> = BOOL [OPTIONAL]
+
+If set to TRUE this activates buffering for this object. Please
+refer to the BUFFERED CONTEXT OBJECTS chapter for details.
+
 =back
 
 =item $context->B<remove_object> ( $name )
@@ -711,6 +728,44 @@ With the proxy you can do updates on object attributes which
 trigger the correspondent GUI updates as well.
 
 =back
+
+=head1 BUFFERED CONTEXT OBJECTS
+
+This feature was introduced in version 0.58 and is marked experimental
+so please use with care.
+
+If you set B<buffered> => 1 when adding an object to the Context
+a buffering Proxy will be used for this object. That means that
+all GUI changes in a synchronized FormFactory dialog are buffered
+in the proxy object. Normally all changes are commited immediately
+to the object, which is Ok in many situations, but makes implementing
+a Cancel button difficult resp. you need to care about this yourself by
+using a copy of the object or something like that.
+
+A FormFactory gets "buffered" if B<all> its widgets are connected to
+a buffered object. In that case Gtk2::Ex::Form::DialogButtons show
+a Cancel button automatically, even in a synchronized dialog.
+
+=head2 What's this good for?
+
+If your FormFactory doesn't has the B<sync> flag set you get Cancel
+button as well, since no changes are applied to the objects until
+the user hit the Ok button. All changes are kept in the "GUI". But
+such a dialog lacks of all dynamic auto-widget-updating features,
+e.g. setting widgets inactive under specific conditions. For very
+simple dialogs this is Ok, but if you need these features you need
+the buffering facility as well.
+
+But take care when implementing your closures for widget activity
+checking: they must not use the original objects! They need to access
+the attributes through the Context, because your original object doesn't
+see any GUI changes until the FormFactory is applied! All changes
+are buffered in the Context. If you access your objects through
+the Context anything works as expected.
+
+Buffering is useful as well in other situations e.g. if you're
+accessing remote objects over a network (for example with Event::RPC)
+where a method call is somewhat expensive.
 
 =head1 AUTHORS
 

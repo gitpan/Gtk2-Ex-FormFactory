@@ -81,6 +81,7 @@ sub get_in_update		{ shift->{in_update}			}
 sub get_no_widget_update	{ shift->{no_widget_update}		}
 sub get_backup_widget_value	{ shift->{backup_widget_value}		}
 sub get_widget_activity		{ shift->{widget_activity}		}
+sub get_built			{ shift->{built}			}
 #------------------------------------------------------------------------
 sub set_form_factory		{ shift->{form_factory}		= $_[1]	}
 sub set_parent			{ shift->{parent}		= $_[1]	}
@@ -93,6 +94,7 @@ sub set_in_update		{ shift->{in_update}		= $_[1]	}
 sub set_no_widget_update	{ shift->{no_widget_update}	= $_[1]	}
 sub set_backup_widget_value	{ shift->{backup_widget_value}	= $_[1]	}
 sub set_widget_activity		{ shift->{widget_activity}	= $_[1]	}
+sub set_built			{ shift->{built}		= $_[1]	}
 #========================================================================
 
 #========================================================================
@@ -272,7 +274,9 @@ sub build {
 	$self->get_form_factory
 	     ->get_layouter
 	     ->build_widget($self);
-	
+
+	$self->set_built(1);
+
 	1;
 }
 
@@ -343,7 +347,7 @@ sub get_widget {
 	my $widget;
 	my $form_factory = $self->get_form_factory;
 
-	die "Widget '$name' not registered to this ".
+	croak "Widget '$name' not registered to this ".
 	    "form factory ('".$form_factory->get_name."')"
 	    	unless $widget = $form_factory->get_widgets_by_name->{$name};
 
@@ -472,8 +476,11 @@ sub update_widget_activity {
 	}
 
 	#-- Has this widget special activity conditions?
-	my $cond = $self->get_active_cond;
-	$active = &$cond() if $cond;
+	my $cond   = $self->get_active_cond;
+	my $object = $cond && $self->get_object ?
+			$self->get_proxy->get_object : undef;
+
+	$active = &$cond($object) if $cond;
 
 	if ( $active ) {
 		#-- Make the widget visible resp. sensitive
@@ -700,6 +707,78 @@ sub apply_changes {
 sub apply_changes_all { shift->apply_changes }
 
 #========================================================================
+# Commit the Widget's Proxy Buffer (if Proxy is buffered at all)
+#========================================================================
+sub commit_proxy_buffers {
+	my $self = shift;
+
+	return unless $self->get_object;
+
+	#-- Nothing to do in synced FormFactories
+	#-- where the Proxy doesn't buffer
+	my $proxy = $self->get_proxy;
+	return 1 unless $proxy->get_buffered;
+		
+	#-- Commit the Proxy's attribute buffer to the object
+	$proxy->commit_attr($self->get_attr);
+
+	#-- And probably additional attributes...
+	if ( $self->has_additional_attrs ) {
+		my $add_attrs = $self->has_additional_attrs;
+		my $object = $self->get_object;
+		foreach my $add_attr ( @{$add_attrs} ) {
+			my $get_attr_name_method = "get_attr_$add_attr";
+			my $attr = $self->$get_attr_name_method();
+			$proxy->commit_attr($attr);
+		}
+	}	
+
+	return 1;
+}
+
+#========================================================================
+# Commit proxy buffer changes incl. children
+# (here the samy as apply, overriden by Container)
+#========================================================================
+sub commit_proxy_buffers_all { shift->commit_proxy_buffers }
+
+#========================================================================
+# Commit the Widget's Proxy Buffer (if Proxy is buffered at all)
+#========================================================================
+sub discard_proxy_buffers {
+	my $self = shift;
+
+	return unless $self->get_object;
+
+	#-- Nothing to do in synced FormFactories
+	#-- where the Proxy doesn't buffer
+	my $proxy = $self->get_proxy;
+	return 1 unless $proxy->get_buffered;
+		
+	#-- Discard the Proxy's attribute buffer
+	$proxy->discard_attr($self->get_attr);
+
+	#-- And probably additional attributes...
+	if ( $self->has_additional_attrs ) {
+		my $add_attrs = $self->has_additional_attrs;
+		my $object = $self->get_object;
+		foreach my $add_attr ( @{$add_attrs} ) {
+			my $get_attr_name_method = "get_attr_$add_attr";
+			my $attr = $self->$get_attr_name_method();
+			$proxy->discard_attr($attr);
+		}
+	}	
+
+	return 1;
+}
+
+#========================================================================
+# Commit proxy buffer changes incl. children
+# (here the samy as apply, overriden by Container)
+#========================================================================
+sub discard_proxy_buffers_all { shift->discard_proxy_buffers }
+
+#========================================================================
 # Show an error dialog
 #========================================================================
 sub show_error_message {
@@ -811,6 +890,7 @@ Gtk2::Ex::FormFactory framework.
   Gtk2::Ex::FormFactory::Rules
   Gtk2::Ex::FormFactory::Context
   Gtk2::Ex::FormFactory::Proxy
+  +--- Gtk2::Ex::FormFactory::ProxyBuffered
 
 =head1 ATTRIBUTES
 
@@ -980,7 +1060,7 @@ You can use this hook to do very specific customization with this
 Widget. Again: use this with care, probably implement your own
 L<Gtk2::Ex::FormFactory::Layout> class to control the layout.
 
-=item B<active_cond> = CODEREF() [optional]
+=item B<active_cond> = CODEREF(ApplicationObject) [optional]
 
 Widget's activity state (visible/sensitive) is controlled by this
 condition resp. the return value of this code reference. Use this

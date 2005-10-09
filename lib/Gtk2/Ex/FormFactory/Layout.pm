@@ -692,24 +692,17 @@ sub build_dialog_buttons {
 	  spacing      => 10,
 	);
 
-	my $buttons = $dialog_buttons->get_buttons;
+	my $buttons      = $dialog_buttons->get_buttons;
+	my $form_factory = $dialog_buttons->get_form_factory;
 
-	if ( not $dialog_buttons->get_form_factory->get_sync ) {
+	if ( !$form_factory->get_sync || $form_factory->get_buffered ) {
 		if ( $buttons->{cancel} ) {
 		    $button = Gtk2::Button->new_from_stock("gtk-cancel");
 		    $button->show;
 		    $button_box->pack_start($button, 0, 1, 0);
 		    $button->signal_connect (
 			clicked => sub {
-		            my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
-		            my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
-			    my $default_handler = 1;
-			    $default_handler = &$clicked_hook_before("cancel")
-				    if $clicked_hook_before;
-			    return if not $default_handler;
-		    	    $dialog_buttons->get_form_factory->cancel;
-			    &$clicked_hook_after("cancel")
-				    if $clicked_hook_after;
+			    $dialog_buttons->cancel_button_clicked;
 			},
 		    );
 		    $dialog_buttons->set_gtk_cancel_button($button);
@@ -721,15 +714,7 @@ sub build_dialog_buttons {
 		    $button_box->pack_start($button, 0, 1, 0);
 		    $button->signal_connect (
 			clicked => sub {
-		            my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
-		            my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
-			    my $default_handler = 1;
-			    $default_handler = &$clicked_hook_before("apply")
-				    if $clicked_hook_before;
-			    return if not $default_handler;
-		    	    $dialog_buttons->get_form_factory->apply;
-			    &$clicked_hook_after("apply")
-				    if $clicked_hook_after;
+			    $dialog_buttons->apply_button_clicked;
 			},
 		    );
 		    $dialog_buttons->set_gtk_apply_button($button);
@@ -742,16 +727,7 @@ sub build_dialog_buttons {
 	    $button_box->pack_start($button, 0, 1, 0);
 	    $button->signal_connect (
 		clicked => sub {
-		    my $clicked_hook_before = $dialog_buttons->get_clicked_hook_before;
-		    my $clicked_hook_after  = $dialog_buttons->get_clicked_hook_after;
-		    my $default_handler = 1;
-		    $default_handler = &$clicked_hook_before("ok")
-			    if $clicked_hook_before;
-		    return if not $default_handler;
-		    $dialog_buttons->get_form_factory->ok
-		    	if $dialog_buttons->get_form_factory;
-		    &$clicked_hook_after("ok")
-			    if $clicked_hook_after;
+		    $dialog_buttons->ok_button_clicked;
 		},
 	    );
 	    $dialog_buttons->set_gtk_ok_button($button);

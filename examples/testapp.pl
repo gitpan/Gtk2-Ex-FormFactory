@@ -44,6 +44,7 @@ main: {
 
 	$context->add_object (
 		name	=> "database",
+		buffered => 0,
 		object	=> undef,
 		attr_accessors_href => {
 			get_discs => sub {
@@ -61,6 +62,7 @@ main: {
 
 	$context->add_object (
 		name	=> "disc",
+		buffered => 0,
 		aggregated_by => "database.selected_disc",
 		attr_accessors_href => {
 			get_titles => sub {
@@ -109,7 +111,7 @@ main: {
 
 	my $ff;
 
-	push @table_childs, Gtk2::Ex::FormFactory::HBox->new (
+	push @table_childs, Gtk2::Ex::FormFactory::VBox->new (
 		expand  => 1,
 		title   => "Child $_",
 		content => [
@@ -120,6 +122,18 @@ main: {
 					sleep 1;
 					$ff->change_mouse_cursor();
 					1;
+				},
+			),
+			Gtk2::Ex::FormFactory::Button->new (
+				label => "Extend NB",
+				clicked_hook => sub {
+					extend_nb($ff);
+				},
+			),
+			Gtk2::Ex::FormFactory::Button->new (
+				label => "Reduce NB",
+				clicked_hook => sub {
+					reduce_nb($ff);
 				},
 			),
 		],
@@ -167,6 +181,7 @@ main: {
 		    ],
 		  },
 	          Gtk2::Ex::FormFactory::Notebook->new (
+		    name    => "notebook",
 		    attr    => "gui_state.selected_page",
 		    expand  => 1,
 		    content => [
@@ -369,6 +384,7 @@ _ 5     ^      ^     *      |   |
 		    ],
 		  ),
 		  Gtk2::Ex::FormFactory::DialogButtons->new (
+		  	buttons => { ok => 1, apply => 1 },
 		  	clicked_hook_before => sub {
 			  my ($button) = @_;
 			  print "User hit button '$button'\n";
@@ -393,6 +409,47 @@ _ 5     ^      ^     *      |   |
 	}
 
 	Gtk2->main;
+}
+
+my $added;
+my @added;
+sub extend_nb {
+	my ($ff) = @_;
+	
+	my $ff_notebook = $ff->get_widget("notebook");
+
+	++$added;
+
+	my $new_form = Gtk2::Ex::FormFactory::Form->new (
+	    name    => "new_form_$added",
+	    title   => "Added $added",
+	    content => [
+	        Gtk2::Ex::FormFactory::Entry->new (
+		    attr  => "disc.artist",
+		    label => "A test entry [$added]",
+		),
+	    ],
+	);
+
+	$ff_notebook->add_child_widget($new_form);
+
+	push @added, $new_form;
+
+	1;
+}
+
+sub reduce_nb {
+	my ($ff) = @_;
+
+	return unless $added;
+
+	my $ff_notebook = $ff->get_widget("notebook");
+	
+	--$added;
+
+	$ff_notebook->remove_child_widget(pop @added);
+	
+	1;
 }
 
 package My::Database;

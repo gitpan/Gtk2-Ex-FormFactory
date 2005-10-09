@@ -172,15 +172,19 @@ sub widget_to_object {
 sub widget_selection_to_object {
 	my $self = shift;
 	
+	return 1 if ! $self->get_proxy->get_object($self->get_object);
+	
 	my @sel = $self->get_gtk_widget->get_selected_indices;
+
 	if ( defined $self->get_attr_select_column ) {
 		my $column = $self->get_attr_select_column;
 		my $data   = $self->get_gtk_widget->{data};
 		$_ = $data->[$_][$column] for @sel;
-		my $sel = join("\t",@sel);
-		return if $sel eq $self->get_last_applied_selection;
-		$self->set_last_applied_selection($sel);
 	}
+
+	my $sel = join("\t",@sel);
+	return if $sel eq $self->get_last_applied_selection;
+	$self->set_last_applied_selection($sel);
 
 	$self->get_proxy->set_attr (
 		$self->get_attr_select, \@sel

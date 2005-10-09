@@ -32,6 +32,8 @@ sub new {
 sub object_to_widget {
 	my $self = shift;
 
+	return unless $self->get_attr;
+
 	if ( $self->get_with_markup ) {
 		$self->get_gtk_widget->set_markup($self->get_object_value);
 	} elsif ( $self->get_bold ) {

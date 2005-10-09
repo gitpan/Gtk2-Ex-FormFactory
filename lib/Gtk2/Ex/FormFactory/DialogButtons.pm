@@ -77,6 +77,53 @@ sub object_to_widget {
 	1;
 }
 
+sub cancel_button_clicked {
+	my $self = shift;
+
+	my $clicked_hook_before = $self->get_clicked_hook_before;
+	my $clicked_hook_after  = $self->get_clicked_hook_after;
+	my $default_handler = 1;
+	$default_handler = &$clicked_hook_before("cancel")
+		if $clicked_hook_before;
+	return if not $default_handler;
+	$self->get_form_factory->cancel;
+	&$clicked_hook_after("cancel")
+		if $clicked_hook_after;
+	1;
+}
+
+sub apply_button_clicked {
+	my $self = shift;
+
+	my $clicked_hook_before = $self->get_clicked_hook_before;
+	my $clicked_hook_after  = $self->get_clicked_hook_after;
+	my $default_handler = 1;
+	$default_handler = &$clicked_hook_before("apply")
+		if $clicked_hook_before;
+	return if not $default_handler;
+	$self->get_form_factory->apply;
+	&$clicked_hook_after("apply")
+		if $clicked_hook_after;
+	1;
+}
+
+sub ok_button_clicked {
+	my $self = shift;
+
+	my $clicked_hook_before = $self->get_clicked_hook_before;
+	my $clicked_hook_after  = $self->get_clicked_hook_after;
+	my $default_handler = 1;
+	$default_handler = &$clicked_hook_before("ok")
+		if $clicked_hook_before;
+	return if not $default_handler;
+	$self->get_form_factory->ok
+	    if $self->get_form_factory;
+	&$clicked_hook_after("ok")
+		if $clicked_hook_after;
+
+	1;
+}
+
 1;
 __END__
 

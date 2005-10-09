@@ -15,6 +15,8 @@ sub get_attr_accessors_href	{ shift->{attr_accessors_href}		}
 sub get_attr_aggregate_href	{ shift->{attr_aggregate_href}		}
 sub get_accessor		{ shift->{accessor}			}
 
+sub get_buffered		{ 0 }
+
 sub new {
 	my $class = shift;
 	my %par = @_;
@@ -67,6 +69,11 @@ sub set_object {
 	my $self = shift;
 	my ($object) = @_;
 
+	#-- nothing to do if it's the same object
+	#-- (eval{} is for catching Class::DBI exceptions if
+	#-- $self->{object} was deleted in the meantime)
+	return if eval { $object eq $self->{object} };
+
 	$self->{object} = $object;
 	
 	my $context = $self->get_context;
@@ -108,7 +115,7 @@ sub get_attr {
 
 sub set_attr {
 	my $self = shift;
-	my ($attr_name, $attr_value) = @_;
+	my ($attr_name, $attr_value, $no_widget_update) = @_;
 
 	if ( $attr_name =~ /^([^.]+)\.(.*)$/ ) {
 		$self      = $self->get_context->get_proxy($1);
@@ -126,11 +133,12 @@ sub set_attr {
 		my $set_prefix = $self->get_set_prefix;
 		my $method     = $set_prefix.$attr_name;
 		$accessor      = $self->get_attr_accessors_href->{$method};
-
 		$rc = $accessor ?
 			&$accessor($object, $attr_value) :
 			$object->$method($attr_value);
 	}
+
+	return $rc if $no_widget_update;
 
 	$self->get_context
 	     ->update_object_attr_widgets($name, $attr_name, $object);
@@ -145,7 +153,7 @@ sub set_attr {
 
 sub set_attrs {
 	my $self = shift;
-	my ($attrs_href) = @_;
+	my ($attrs_href, $no_widget_update) = @_;
 	
 	my $set_prefix  = $self->get_set_prefix;
 	my $object      = $self->get_object;
@@ -167,13 +175,14 @@ sub set_attrs {
 				&$accessor($object, $attr_value) :
 				$object->$method($attr_value);
 		}
+		$accessor = undef;
+		next if $no_widget_update;
 		$context->update_object_attr_widgets(
 			$name, $attr_name, $object
 		);
 		$child_object_name = $self->get_attr_aggregate_href->{$attr_name};
-		$self->get_context->set_object($child_object_name, $attr_value)
+		$context->set_object($child_object_name, $attr_value)
 			if $child_object_name;
-		$accessor = undef;
 	}
 	
 	1;

@@ -95,6 +95,58 @@ sub build_children {
 	1;	
 }
 
+sub add_child_widget {
+	my $self = shift;
+	my ($child) = @_;
+
+	push @{$self->get_content}, $child;
+
+	return unless $self->get_built;
+
+	my $layouter = $self->get_form_factory->get_layouter;
+
+	$child->set_parent($self);
+	$child->set_form_factory($self->get_form_factory);
+	$child->build;
+
+	$layouter->add_widget_to_container($child, $self);
+
+	$child->connect_signals;
+	$child->update_all;
+	$child->get_gtk_parent_widget->show_all;
+
+	1;
+}
+
+sub remove_child_widget {
+	my $self = shift;
+	my ($child) = @_;
+	
+	my $found;
+	my $i = 0;
+	for ( @{$self->get_content} ) {
+		$found = 1, last if $_ eq $child;
+		++$i;
+	}
+
+	die "Widget '".$child->get_name.
+	    "' no child of container '".
+	    $self->get_name."'" unless $found;
+
+	splice @{$self->get_content}, $i, 1;
+	
+	return unless $self->get_built;
+
+	my $child_gtk_widget = $child->get_gtk_parent_widget;
+	my $gtk_widget       = $self->get_gtk_widget;
+	
+	$gtk_widget->remove($child_gtk_widget);
+
+	$child->cleanup;
+
+	1;	
+}
+
 sub update_all {
 	my $self = shift;
 	
@@ -109,6 +161,24 @@ sub apply_changes_all {
 	
 	$self->SUPER::apply_changes(@_);
 	$_->apply_changes_all for @{$self->get_content};
+	
+	1;
+}
+
+sub commit_proxy_buffers_all {
+	my $self = shift;
+	
+	$self->SUPER::commit_proxy_buffers(@_);
+	$_->commit_proxy_buffers_all for @{$self->get_content};
+	
+	1;
+}
+
+sub discard_proxy_buffers_all {
+	my $self = shift;
+	
+	$self->SUPER::discard_proxy_buffers(@_);
+	$_->discard_proxy_buffers_all for @{$self->get_content};
 	
 	1;
 }
@@ -199,6 +269,28 @@ This is a reference to an array containing the children of this container.
 =back
 
 For more attributes refer to L<Gtk2::Ex::FormFactory::Widget>.
+
+=head1 METHODS
+
+=over 4
+
+=item $container->B<add_child_widget> ( $widget )
+
+With this method you add a child widget to a container widget.
+If the container actually wasn't built yet the widget
+is just appended to the content list of the container
+and will be built later together with the container.
+
+Otherwise the widget will be built, shown and updated, so
+adding widgets at runtime is no problem.
+
+=item $container->B<remove_child_widget> ( $widget )
+
+Removes a child widget from this container. If the container
+is built the widget will be destroyed completely and the $widget
+reference may not be used furthermore.
+
+=back
 
 =head1 AUTHORS
 

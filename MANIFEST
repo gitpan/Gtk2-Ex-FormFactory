@@ -23,6 +23,7 @@ lib/Gtk2/Ex/FormFactory/Notebook.pm
 lib/Gtk2/Ex/FormFactory/Popup.pm
 lib/Gtk2/Ex/FormFactory/ProgressBar.pm
 lib/Gtk2/Ex/FormFactory/Proxy.pm
+lib/Gtk2/Ex/FormFactory/ProxyBuffered.pm
 lib/Gtk2/Ex/FormFactory/RadioButton.pm
 lib/Gtk2/Ex/FormFactory/Rules.pm
 lib/Gtk2/Ex/FormFactory/TextView.pm

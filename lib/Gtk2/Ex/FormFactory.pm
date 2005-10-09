@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.57";
+$VERSION = "0.58";
 
 use strict;
 
@@ -22,6 +22,7 @@ sub get_rule_checker		{ shift->{rule_checker}			}
 sub get_gtk_size_groups		{ shift->{gtk_size_groups}		}
 sub get_parent_ff		{ shift->{parent_ff}			}
 sub get_widgets_by_name		{ shift->{widgets_by_name}		}
+sub get_buffered		{ shift->{buffered}			}
 
 sub set_context			{ shift->{context}		= $_[1]	}
 sub set_sync			{ shift->{sync}			= $_[1]	}
@@ -30,6 +31,7 @@ sub set_rule_checker		{ shift->{rule_checker}		= $_[1]	}
 sub set_gtk_size_groups		{ shift->{gtk_size_groups}	= $_[1]	}
 sub set_parent_ff		{ shift->{parent_ff}		= $_[1]	}
 sub set_widgets_by_name		{ shift->{widgets_by_name}	= $_[1]	}
+sub set_buffered		{ shift->{buffered}		= $_[1]	}
 
 sub get_form_factory		{ shift					}
 
@@ -53,6 +55,7 @@ sub new {
 	$self->set_rule_checker    ($rule_checker);
 	$self->set_gtk_size_groups ({});
 	$self->set_widgets_by_name ({});
+	$self->set_buffered	   (1);
 
 	return $self;
 }
@@ -122,7 +125,7 @@ sub update {
 sub ok {
 	my $self = shift;
 
-	$self->apply if not $self->get_sync;
+	$self->apply;
 	$self->close;
 	
 	1;
@@ -131,7 +134,11 @@ sub ok {
 sub apply {
 	my $self = shift;
 
-	$self->apply_changes_all;
+	if ( $self->get_sync ) {
+		$self->commit_proxy_buffers_all;
+	} else {
+		$self->apply_changes_all;
+	}
 
 	1;
 }
@@ -139,6 +146,7 @@ sub apply {
 sub cancel {
 	my $self = shift;
 	
+	$self->discard_proxy_buffers_all if $self->get_sync;
 	$self->close;
 	
 	1;
@@ -175,7 +183,27 @@ sub register_widget {
 	my ($widget) = @_;
 
 	$self->get_widgets_by_name->{$widget->get_name} = $widget;
-	
+
+=cut
+
+print "UNBUFFERED: widget=".$widget->get_name." object=".$widget->get_object."\n"
+if $widget->get_object &&
+	  !$self->get_context
+	        ->get_proxy($widget->get_object)
+	        ->get_buffered;
+print "BUFFERED: widget=".$widget->get_name." object=".$widget->get_object."\n"
+if $widget->get_object &&
+	  $self->get_context
+	        ->get_proxy($widget->get_object)
+	        ->get_buffered;
+					
+=cut
+
+	$self->set_buffered(0) if $widget->get_object &&
+				  !$self->get_context
+				        ->get_proxy($widget->get_object)
+				        ->get_buffered;
+
 	1;
 }
 
