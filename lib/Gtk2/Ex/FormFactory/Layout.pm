@@ -533,19 +533,32 @@ sub build_button {
 
 	my $gtk_button;
 	
-	if ( $stock and $label ) {
+        #-- Button with stock and text
+	if ( $stock and $label ne '' ) {
 		my $hbox = Gtk2::HBox->new;
 		my $image = Gtk2::Image->new_from_stock($stock,"small-toolbar");
-		my $label = Gtk2::Label->new($label);
+		my $gtk_label = Gtk2::Label->new($label);
 		$hbox->pack_start($image, 0, 1, 0);
-		$hbox->pack_start($label, 0, 1, 0);
+		$hbox->pack_start($gtk_label, 0, 1, 0);
 		$gtk_button = Gtk2::Button->new;
 		my $align = Gtk2::Alignment->new (0.5, 0.5, 0, 0);
 		$align->add($hbox);
 		$gtk_button->add($align);
-	} elsif ( $stock and not $label ) {
+
+        }
+        #-- Button with stock and empty text
+        elsif ( $stock and defined $label ) {
+		my $image = Gtk2::Image->new_from_stock($stock,"small-toolbar");
+		$gtk_button = Gtk2::Button->new;
+		$gtk_button->add($image);
+
+	}
+        #-- Default Stock button (with default text)
+        elsif ( $stock and not $label ) {
 		$gtk_button = Gtk2::Button->new_from_stock($stock);
-	} else {
+	}
+        #-- Simple text button
+        else {
 		$gtk_button = Gtk2::Button->new($label);
 	}
 
