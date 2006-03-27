@@ -225,7 +225,7 @@ sub cleanup {
 	my $self = shift;
 	
 	$Gtk2::Ex::FormFactory::DEBUG &&
-		print "CLEANUP: ".$self->get_name."(".$self->get_attr.")\n";
+		print "CLEANUP: $self ".$self->get_name."(".$self->get_attr.")\n";
 	
 	#-- Break circular references with the parent object
 	$self->set_parent(undef);
@@ -482,9 +482,28 @@ sub update_widget_activity {
 
 	$active = &$cond($object) if $cond;
 
+        my $action = $self->get_inactive;
+
+        if ( $active eq 'insensitive' ) {
+            $action = "insensitive";
+            $active = 0;
+        }
+        elsif ( $active eq 'invisible' ) {
+            $action = "invisible";
+            $active = 0;
+        }
+        elsif ( $active eq 'sensitive' ) {
+            $action = "insensitive";
+            $active = 1;
+        }
+        elsif ( $active eq 'visible' ) {
+            $action = "invisible";
+            $active = 1;
+        }
+
 	if ( $active ) {
 		#-- Make the widget visible resp. sensitive
-		if ( $self->get_inactive eq 'invisible' ) {
+		if ( $action eq 'invisible' ) {
 			$Gtk2::Ex::FormFactory::DEBUG &&
 			    print "  update_widget_activity(".
 			    	  $self->get_name.
@@ -497,6 +516,9 @@ sub update_widget_activity {
 			    print "  update_widget_activity(".
 			    	  $self->get_name.
 			          ", sensitive)\n";
+			$self->get_gtk_parent_widget->show;
+			$self->get_gtk_label_widget->show
+				if $self->get_gtk_label_widget;
 			$self->get_gtk_parent_widget->set_sensitive(1);
 			$self->get_gtk_label_widget->set_sensitive(1)
 				if $self->get_gtk_label_widget;
@@ -504,7 +526,7 @@ sub update_widget_activity {
 	
 	} else {
 		#-- Make the widget invisible resp. insensitive
-		if ( $self->get_inactive eq 'invisible' ) {
+		if ( $action eq 'invisible' ) {
 			$Gtk2::Ex::FormFactory::DEBUG &&
 			    print "  update_widget_activity(".
 			    	  $self->get_name.
@@ -871,6 +893,8 @@ Gtk2::Ex::FormFactory framework.
   +--- Gtk2::Ex::FormFactory::Combo
   +--- Gtk2::Ex::FormFactory::DialogButtons
   +--- Gtk2::Ex::FormFactory::Entry
+  +--- Gtk2::Ex::FormFactory::Expander
+  +--- Gtk2::Ex::FormFactory::ExecFlow
   +--- Gtk2::Ex::FormFactory::GtkWidget
   +--- Gtk2::Ex::FormFactory::HSeparator
   +--- Gtk2::Ex::FormFactory::Image
@@ -883,6 +907,7 @@ Gtk2::Ex::FormFactory framework.
   +--- Gtk2::Ex::FormFactory::TextView
   +--- Gtk2::Ex::FormFactory::Timestamp
   +--- Gtk2::Ex::FormFactory::ToggleButton
+  +--- Gtk2::Ex::FormFactory::VPaned
   +--- Gtk2::Ex::FormFactory::VSeparator
   +--- Gtk2::Ex::FormFactory::YesNo
 
@@ -1046,9 +1071,9 @@ Gtk2's B<signal_connect_after> method.
 
 =item B<height> = INTEGER [optional]
 
-You can specify a desired width and/or height. Use this with care,
-because this destroys many of Gtk's dynamic layout capablities.
-Internally B<Gtk2::Widget-&gt;size_request> is used for this feature.
+You can specify a desired width and/or height. Internally
+B<Gtk2::Widget-&gt;set_default_size> is used on windows
+and B<Gtk2::Widget-&gt;set_size_request> on all other widgets.
 
 =item B<customize_hook> = CODEREF(Gtk2::Widget) [optional]
 
@@ -1064,18 +1089,36 @@ L<Gtk2::Ex::FormFactory::Layout> class to control the layout.
 
 Widget's activity state (visible/sensitive) is controlled by this
 condition resp. the return value of this code reference. Use this
-only if your widget isn't actually bound to any application object
-attribute, since widget activity is better controlled on the
-Context level in that case. Please refer to the documentation of
-Gtk2::Ex::FormFactory::Context->add_object for details about this.
+if you want to fine control the activity state of the widget with
+arbitrary conditions. Note that widgets get automatically inactive
+if the object they're bound to get's undef.
+
+The return value is as follows:
+
+  0   Widget gets inactive. According to the B<inactive>
+      attribute it gets either invisible or insensitive.
+
+  1   Widget gets active. According to the B<inactive>
+      attribute it gets either visible or sensitive.
+
+Or return one of these strings
+
+  'insensitive'
+  'invisible'
+  'sensitive'
+  'visible'
+
+to get the corresponding widget state.
 
 =item B<active_depends> = SCALAR | ARRAYREF [optional]
 
-This lists the attribute(s) (in "object.attr" notation) the
-activity condition above depends on, resp. which attributes
-are the variables in the condition. With this knowledge
-Gtk2::Ex::FormFactory is able to update the activity automatically
-if one of the corresponding attributes changes.
+This lists the attribute(s) the activity condition above depends on,
+resp. which attributes are variables in the condition. May
+point to objects or attributes (in "object.attr" notation).
+
+With this knowledge Gtk2::Ex::FormFactory is able to update the
+activity automatically if one of the corresponding objects or
+attributes changes.
 
 =back
 
@@ -1317,7 +1360,7 @@ widgets for your Gtk2::Ex::FormFactory widget.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004-2005 by Jörn Reder.
+Copyright 2004-2006 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

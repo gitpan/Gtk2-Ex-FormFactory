@@ -2,7 +2,7 @@ package Gtk2::Ex::FormFactory::Menu;
 
 use strict;
 
-use base qw( Gtk2::Ex::FormFactory::Widget );
+use base qw( Gtk2::Ex::FormFactory::Container );
 
 sub get_type { "menu" }
 
@@ -10,13 +10,11 @@ sub get_menu_tree		{ shift->{menu_tree}			}
 sub get_default_callback	{ shift->{default_callback}		}
 sub get_user_data		{ shift->{user_data}			}
 sub get_gtk_simple_menu		{ shift->{gtk_simple_menu}		}
-sub get_gtk_menu_items_by_object{ shift->{gtk_menu_items_by_object}	}
 
 sub set_menu_tree		{ shift->{menu_tree}		= $_[1]	}
 sub set_default_callback	{ shift->{default_callback}	= $_[1]	}
 sub set_user_data		{ shift->{user_data}		= $_[1]	}
 sub set_gtk_simple_menu		{ shift->{gtk_simple_menu}	= $_[1]	}
-sub set_gtk_menu_items_by_object{ shift->{gtk_menu_items_by_object}=$_[1]}
 
 sub new {
 	my $class = shift;
@@ -42,7 +40,6 @@ sub cleanup {
 	
 	$self->SUPER::cleanup(@_);
 	$self->set_gtk_simple_menu(undef);
-	$self->set_gtk_menu_items_by_object(undef);
 
 	1;
 }
@@ -52,74 +49,16 @@ sub build {
 	
 	$self->SUPER::build(@_);
 
-	my %gtk_menu_items_by_object;
-
-	$self->traverse_menu_tree(
+	$self->build_active_menu_items (
 		$self->get_menu_tree, "",
-		\%gtk_menu_items_by_object,
 	);
 	
-	$self->set_gtk_menu_items_by_object (
-		\%gtk_menu_items_by_object
-	);
-
-	my $context = $self->get_form_factory->get_context;
-
-	my $widget_full_name =
-		$self->get_form_factory->get_name.".".
-		$self->get_name;
-
-	foreach my $object ( keys %gtk_menu_items_by_object ) {
-		$context->get_widgets_by_object
-		     ->{$object}
-		     ->{$widget_full_name} = $self;
-
-	}
-
 	1;
 }
 
-sub DESTROY {
+sub build_active_menu_items {
 	my $self = shift;
-	
-	my $context = $self->get_form_factory->get_context;
-
-	my $widget_full_name =
-		$self->get_form_factory->get_name.".".
-		$self->get_name;
-
-	foreach my $object ( keys %{$self->get_gtk_menu_items_by_object} ) {
-		delete
-		    $context->get_widgets_by_object
-		    	    ->{$object}
-			    ->{$widget_full_name};
-	}
-	
-	1;
-}
-
-sub update_widget_activity {
-	my $self = shift;
-	
-	$self->SUPER::update_widget_activity(@_)
-		if $self->get_object ne '__dummy';
-	
-	my $context = $self->get_form_factory->get_context;
-	my $gtk_menu_items_by_object = $self->get_gtk_menu_items_by_object;
-
-	my $sensitive;
-	foreach my $object ( keys %{$gtk_menu_items_by_object} ) {
-		$sensitive = defined $context->get_object($object);
-		$_->set_sensitive ($sensitive)
-			for values %{$gtk_menu_items_by_object->{$object}};
-	}
-	
-	1;
-}
-
-sub traverse_menu_tree {
-	my $self = shift;
-	my ($menu_tree, $path, $gtk_widgets_href) = @_;
+	my ($menu_tree, $path) = @_;
 	
 	my $i = 0;
 	my ($name, $def);
@@ -129,17 +68,24 @@ sub traverse_menu_tree {
 		$name =~ s/_//g;
 
 		if ( $def->{item_type} eq '<Branch>' ) {
-			$self->traverse_menu_tree (
+			$self->build_active_menu_items (
 				$def->{children},
 				"$path/$name",
-				$gtk_widgets_href,
 			);
 		}
 
-		if ( $def->{object} ) {
-			my $full_path = "$path/$name";
-			$gtk_widgets_href->{$def->{object}}->{$full_path}
-				= $self->get_gtk_simple_menu->get_widget($full_path);
+		if ( $def->{object} || $def->{active_cond} ) {
+                        my $menu_item = Gtk2::Ex::FormFactory::MenuItem->new (
+                            object          => $def->{object},
+                            active_cond     => $def->{active_cond},
+                            active_depends  => $def->{active_depends},
+                        );
+                        $menu_item->set_form_factory($self->get_form_factory);
+                        $menu_item->set_gtk_widget(
+                            $self->get_gtk_simple_menu
+                                 ->get_widget("$path/$name")
+                        );
+                        push @{$self->get_content}, $menu_item;
 		}
 
 		$i += 2;
@@ -147,6 +93,13 @@ sub traverse_menu_tree {
 	
 	1;
 }
+
+package Gtk2::Ex::FormFactory::MenuItem;
+
+use base qw( Gtk2::Ex::FormFactory::Widget );
+
+sub get_type     { "menu_item" }
+sub build_widget { 1 }
 
 1;
 
@@ -203,12 +156,20 @@ was built.
 This is a slightly extended menu tree definition in terms of
 Gtk2::Ex::Simple::Menu. You may optionally associate each
 entry with an application object by specifying its name with
-the 'object' key in the item definition hash.
+the B<object> key in the item definition hash. This way the
+item is active only if the correspondent object is defined.
+
+As well you can control widget activity more detailed using the 
+B<active_cond> and B<active_depends> keys as described in the
+Gtk2::Ex::FormFactory::Widget manpage.
 
 A short example. This is a File menu where the 'Save' and 'Close'
 entries are sensitive only if a file was opened. We presume
 that opening a file sets the 'worksheet' object, which is registered
-with this name to the Context of the associated FormFactory:
+with this name to the Context of the associated FormFactory.
+Additionally the 'Manage rows' entry is active only if more than
+three rows are selected:
+
 
   $menu_tree = [
     _File => {
@@ -226,6 +187,11 @@ with this name to the Context of the associated FormFactory:
 	  callback => \&close_worksheet,
 	  object   => 'worksheet',
 	},
+        "_Manage rows" => {
+          callback       => \&manage_rows,
+          object         => 'worksheet',
+          active_cond    => sub { $worksheet->get_selected_rows_cnt > 3 },
+          active_depends => "worksheet.rows",
       ],
     },
   ];
@@ -250,7 +216,7 @@ For more attributes refer to L<Gtk2::Ex::FormFactory::Widget>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004-2005 by Jörn Reder.
+Copyright 2004-2006 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

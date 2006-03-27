@@ -4,24 +4,37 @@ use strict;
 
 use base qw( Gtk2::Ex::FormFactory::Widget );
 
-sub get_type { "toggle_button" }
+sub get_type    { "toggle_button"   }
+sub has_label	{ 1		    }
 
-sub get_true_label		{ shift->{true_label}	|| "Yes"	}
-sub get_false_label		{ shift->{false_label}	|| "No"		}
+sub get_true_label		{ shift->{true_label}		        }
+sub get_false_label		{ shift->{false_label}	    		}
+sub get_stock                   { shift->{stock}                        }
+sub get_clicked_hook            { shift->{clicked_hook}                 }
 
 sub set_true_label		{ shift->{true_label}		= $_[1]	}
 sub set_false_label		{ shift->{false_label}		= $_[1]	}
+sub set_stock                   { shift->{stock}                = $_[1] }
+sub set_clicked_hook            { shift->{clicked_hook}         = $_[1] }
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my ($true_label, $false_label) = @par{'true_label','false_label'};
+	my  ($true_label, $false_label, $label, $stock, $clicked_hook) =
+        @par{'true_label','false_label','label','stock','clicked_hook'};
 
 	my $self = $class->SUPER::new(@_);
 	
+        $true_label  = "Yes" unless defined $true_label;
+        $false_label = "No"  unless defined $false_label;
+        $label       = $false_label unless defined $label;
+        
+	$self->set_label($label);
 	$self->set_true_label($true_label);
 	$self->set_false_label($false_label);
-	
+	$self->set_stock($stock);
+	$self->set_clicked_hook($clicked_hook);
+
 	return $self;
 }
 
@@ -65,8 +78,8 @@ sub get_widget_check_value {
 
 sub connect_changed_signal {
 	my $self = shift;
-	
-	$self->get_gtk_widget->signal_connect (
+
+	$self->get_gtk_widget->signal_connect_after (
 	  toggled => sub {
 	  	$self->update_button_label;
 	  	$self->widget_value_changed;
@@ -79,13 +92,24 @@ sub connect_changed_signal {
 sub update_button_label {
 	my $self = shift;
 	
-	my $value      = $self->get_gtk_widget->get_active;
-	my $gtk_widget = $self->get_gtk_widget;
+        return if $self->get_true_label eq $self->get_false_label;
 
-	if ( $value ) {
-		$gtk_widget->set_label($self->get_true_label);
+        my $gtk_widget;
+        if ( $self->get_stock ) {
+            my $gtk_align  = ($self->get_gtk_parent_widget->get_children)[0];
+            my $gtk_hbox   = ($gtk_align->get_children)[0];
+            $gtk_widget = ($gtk_hbox->get_children)[1];
+        }
+        else {
+    	    $gtk_widget = $self->get_gtk_widget;
+        }
+
+	my $value = $self->get_gtk_widget->get_active;
+
+    	if ( $value ) {
+    	    $gtk_widget->set_label($self->get_true_label);
 	} else {
-		$gtk_widget->set_label($self->get_false_label);
+	    $gtk_widget->set_label($self->get_false_label);
 	}
 
 	1;
@@ -102,8 +126,10 @@ Gtk2::Ex::FormFactory::ToggleButton - A ToggleButton in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::ToggleButton->new (
-    true_label  => Label of the activated button,
-    false_label => Label of the deactivated button,
+    true_label   => Label of the activated button,
+    false_label  => Label of the deactivated button,
+    stock        => Name of stock image for this button,
+    clicked_hook => Coderef to called on clicking,
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -143,6 +169,17 @@ Once the button is activated this label is set.
 
 Once the button is deactivated this label is set.
 
+=item B<clicked_hook> = CODEREF [optional]
+
+This is for convenience and connects the CODEREF to the clicked
+signal of the button.
+
+=item B<stock> = SCALAR [optional]
+
+You may specify the name of a stock item here, which should be
+added to the button, e.g. 'gtk-edit' for the standard Gtk Edit
+stock item. You may combine B<stock> and B<label> arbitrarily.
+
 =back
 
 For more attributes refer to L<Gtk2::Ex::FormFactory::Widget>.
@@ -153,7 +190,7 @@ For more attributes refer to L<Gtk2::Ex::FormFactory::Widget>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004-2005 by Jörn Reder.
+Copyright 2004-2006 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

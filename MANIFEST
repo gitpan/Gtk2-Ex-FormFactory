@@ -7,6 +7,7 @@ lib/Gtk2/Ex/FormFactory/Combo.pm
 lib/Gtk2/Ex/FormFactory/Container.pm
 lib/Gtk2/Ex/FormFactory/Context.pm
 lib/Gtk2/Ex/FormFactory/Entry.pm
+lib/Gtk2/Ex/FormFactory/ExecFlow.pm
 lib/Gtk2/Ex/FormFactory/Expander.pm
 lib/Gtk2/Ex/FormFactory/Form.pm
 lib/Gtk2/Ex/FormFactory/GtkWidget.pm
@@ -32,6 +33,7 @@ lib/Gtk2/Ex/FormFactory/Timestamp.pm
 lib/Gtk2/Ex/FormFactory/ToggleButton.pm
 lib/Gtk2/Ex/FormFactory/VBox.pm
 lib/Gtk2/Ex/FormFactory/VSeparator.pm
+lib/Gtk2/Ex/FormFactory/VPaned.pm
 lib/Gtk2/Ex/FormFactory/Widget.pm
 lib/Gtk2/Ex/FormFactory/Window.pm
 lib/Gtk2/Ex/FormFactory/YesNo.pm

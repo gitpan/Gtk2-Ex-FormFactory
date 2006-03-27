@@ -307,6 +307,13 @@ main: {
 				  ),
 				],
 			      ),
+                              Gtk2::Ex::FormFactory::Label->new (
+                                label   => "Active for Jamiroquai",
+                                active_cond => sub {
+                                    $context->get_object("disc")->get_artist =~ /Jam/;
+                                },
+                                active_depends => "disc.artist",
+                              ),
 			    ],
 			  ),
 			],

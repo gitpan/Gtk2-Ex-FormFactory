@@ -31,13 +31,15 @@ sub new {
 	my $self = bless {
 		default_set_prefix	=> $default_set_prefix,
 		default_get_prefix	=> $default_get_prefix,
-		proxies_by_name		=> {},
-		widgets_by_attr		=> {},
-		widgets_by_object	=> {},
-		update_hooks_by_object  => {},
-		depend_trigger_href	=> {},
-		aggregated_by_href	=> {},
-		widget_activity_href	=> {},
+
+		proxies_by_name		=> {},  # ->{"$object"} = $proxy
+		widgets_by_attr		=> {},  # ->{"$object.$attr"}->{"$widget_ff_name.$widget_name"} = $widget
+		widgets_by_object	=> {},  # ->{"$object"} = $widget
+		update_hooks_by_object  => {},  # ->{"$object"} = CODEREF
+		depend_trigger_href	=> {},  # ->{"$master_object.$master_attr"}->{"$slave_object.$slave_attr"} = 1
+		aggregated_by_href	=> {},  # ->{"$object.$attr"}->{"$object"} = 1
+		widget_activity_href	=> {},  # ->{"$object.$attr"}->{"$widget_name"} = $widget
+
 	}, $class;
 	
 	$self->add_object(
@@ -46,6 +48,33 @@ sub new {
 	);
 	
 	return $self;
+}
+
+sub norm_object {
+        my $self = shift;
+        my ($object) = @_;
+        my ($o, $a) = split(/\./, $object);
+        return $o;
+}
+
+sub norm_object_attr {
+        my $self = shift;
+        my ($object, $attr) = @_;
+        
+        return ""      if $object eq '' && $attr eq '';
+        return $attr   if defined $attr && $attr =~ /\./;
+        return $object if !defined $attr || $attr eq '';
+
+        if ( $object =~ /\./ ) {
+            my ($o, $a) = split(/\./, $object);
+            return "$o.$attr";
+        }
+
+        die "Illegal object.attr definition object='$object' attr='$attr'"
+            if $object eq '';
+
+        return ($object, $attr) if wantarray;
+        return "$object.$attr";
 }
 
 sub add_object {
@@ -66,13 +95,11 @@ sub add_object {
 		foreach my $attr ( keys %{$attr_depends_href} ) {
 			if ( not ref $attr_depends_href->{$attr} ) {
 				my $depends_attr = $attr_depends_href->{$attr};
-				$depends_attr = "$name.$depends_attr"
-					unless $depends_attr =~ /\./;
+                                $depends_attr = $self->norm_object_attr($name, $depends_attr);
 				$depend_trigger_href->{$depends_attr}->{"$name.$attr"} = 1;
 			} elsif ( ref $attr_depends_href->{$attr} eq 'ARRAY' ) {
 				foreach my $depends_attr ( @{$attr_depends_href->{$attr}} ) {
-					$depends_attr = "$name.$depends_attr"
-						unless $depends_attr =~ /\./;
+                                        $depends_attr = $self->norm_object_attr($name, $depends_attr);
 					$depend_trigger_href->{$depends_attr}->{"$name.$attr"} = 1;
 				}
 			} else {
@@ -91,6 +118,8 @@ sub add_object {
 
 	if ( $aggregated_by ) {
 		my ($parent_object, $parent_attr) = split(/\./, $aggregated_by);
+                die "aggregated_by definition of object '$name' needs an attr"
+                    unless $parent_attr;
 		my $parent_proxy = $self->get_proxy($parent_object);
 		$parent_proxy->get_attr_aggregate_href->{$parent_attr} = $name;
 		$self->get_aggregated_by_href->{$aggregated_by}->{$name} = 1;
@@ -130,21 +159,28 @@ sub register_widget {
 	my $self = shift;
 	my ($widget) = @_;
 	
+        my $object = $widget->get_object;
+
 	if ( $widget->get_active_depends ) {
-		my $dep = $widget->get_active_depends;
-		$dep = [ $dep ] unless ref $dep eq 'ARRAY';
-		for ( @{$dep} ) {
+	    my $dep = $widget->get_active_depends;
+	    $dep = [ $dep ] unless ref $dep eq 'ARRAY';
+	    for my $oa ( @{$dep} ) {
+                my $norm_oa = $self->norm_object_attr($oa);
+                my $norm_o  = $self->norm_object($oa);
+		$self->get_widget_activity_href
+		     ->{$self->norm_object_attr($norm_oa)}
+		     ->{$widget->get_name} = $widget;
+                if ( $norm_oa ne $norm_o ) {
 		    $self->get_widget_activity_href
-			 ->{$_}
+			 ->{$self->norm_object_attr($norm_o)}
 			 ->{$widget->get_name} = $widget;
-		}
+                }
+	    }
 	}
 	
-	my $object_attr =
-		$widget->get_object.".".
-		$widget->get_attr;
+	my $object_attr = $self->norm_object_attr($widget->get_object, $widget->get_attr);
 
-	return if $object_attr eq '.';
+	return if $object_attr eq '';
 
 	my $widget_full_name =
 		$widget->get_form_factory->get_name.".".
@@ -163,9 +199,8 @@ sub register_widget {
 		foreach my $add_attr ( @{$add_attrs} ) {
 			my $get_attr_name_method = "get_attr_$add_attr";
 			my $attr = $widget->$get_attr_name_method();
-			$attr = "$object.$attr" unless $attr =~ /\./;
 			$self->get_widgets_by_attr
-			     ->{$attr}
+			     ->{$self->norm_object_attr($object, $attr)}
 			     ->{$widget_full_name} = $widget;
 		}
 	}	
@@ -183,17 +218,14 @@ sub deregister_widget {
 
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "DEREGISTER ".$widget->get_name."\n";
-	
-	return if not $widget->get_object or
-		      $widget->get_object eq '__dummy';
 
+        my $object      = $widget->get_object;
+	my $object_attr = $self->norm_object_attr($widget->get_object, $widget->get_attr);
+        return if $object_attr eq '';
+	
 	my $widget_full_name =
 		$widget->get_form_factory->get_name.".".
 		$widget->get_name;
-
-	my $object_attr =
-		$widget->get_object.".".
-		$widget->get_attr;
 
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "DEREGISTER: $object_attr => $widget_full_name\n";
@@ -207,14 +239,24 @@ sub deregister_widget {
 		    ->{$object_attr}
 		    ->{$widget_full_name};
 
+        delete $self->get_widgets_by_attr->{$object_attr}
+            if keys %{$self->get_widgets_by_attr->{$object_attr}} == 0;
+
 	if ( $widget->get_active_depends ) {
-		my $dep = $widget->get_active_depends;
-		$dep = [ $dep ] unless ref $dep eq 'ARRAY';
-		for ( @{$dep} ) {
+	    my $dep = $widget->get_active_depends;
+	    $dep = [ $dep ] unless ref $dep eq 'ARRAY';
+	    for my $oa ( @{$dep} ) {
+                my $norm_oa = $self->norm_object_attr($oa);
+                my $norm_o  = $self->norm_object($oa);
+		delete $self->get_widget_activity_href
+		            ->{$self->norm_object_attr($norm_oa)}
+		            ->{$widget->get_name};
+                if ( $norm_oa ne $norm_o ) {
 		    delete $self->get_widget_activity_href
-			 ->{$_}
-			 ->{$widget->get_name};
-		}
+			        ->{$self->norm_object_attr($norm_o)}
+			        ->{$widget->get_name};
+                }
+	    }
 	}
 
 	if ( $widget->has_additional_attrs ) {
@@ -223,9 +265,12 @@ sub deregister_widget {
 		foreach my $add_attr ( @{$add_attrs} ) {
 			my $get_attr_name_method = "get_attr_$add_attr";
 			my $attr = $widget->$get_attr_name_method();
+                        my $norm_attr = $self->norm_object_attr($object, $attr);
 			delete $self->get_widgets_by_attr
-				    ->{"$object.$attr"}
+				    ->{$norm_attr}
 				    ->{$widget_full_name};
+                        delete $self->get_widgets_by_attr->{$norm_attr}
+                            if keys %{$self->get_widgets_by_attr->{$norm_attr}} == 0;
 		}
 	}	
 
@@ -240,7 +285,7 @@ sub get_proxy {
 	my $self = shift;
 	my ($name) = @_;
 
-	($name) = split (/\./, $name);
+        $name = $self->norm_object($name);
 
 	my $proxy = $self->get_proxies_by_name->{$name};
 
@@ -254,7 +299,7 @@ sub get_object {
 	my $self = shift;
 	my ($name) = @_;
 
-	($name) = split (/\./, $name);
+        $name = $self->norm_object($name);
 
 	my $proxy = $self->get_proxies_by_name->{$name};
 
@@ -268,7 +313,7 @@ sub set_object {
 	my $self = shift;
 	my ($name, $object) = @_;
 
-	($name) = split (/\./, $name);
+        $name = $self->norm_object($name);
 
 	my $proxy = $self->get_proxies_by_name->{$name};
 
@@ -325,19 +370,19 @@ sub update_object_attr_widgets {
 	my $self = shift;
 	my ($object, $attr) = @_;
 
+        my $object_attr = $self->norm_object_attr($object, $attr);
+
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "update_object_attr_widgets($object, $attr)\n";
-
-	($object, $attr) = split(/\./, $object) if $object =~ /\./ && !$attr;
 
 	my $widgets_by_attr      = $self->get_widgets_by_attr;
 	my $depend_trigger_href  = $self->get_depend_trigger_href;
 	my $widget_activity_href = $self->get_widget_activity_href;
 
-	$_->update for values %{$widgets_by_attr->{"$object.$attr"}};
-	$_->update for values %{$widget_activity_href->{"$object.$attr"}};
+	$_->update for values %{$widgets_by_attr->{$object_attr}};
+	$_->update for values %{$widget_activity_href->{$object_attr}};
 
-	foreach my $update_object_attr ( keys %{$depend_trigger_href->{"$object.$attr"}} ) {
+	foreach my $update_object_attr ( keys %{$depend_trigger_href->{$object_attr}} ) {
 		$_->update for values %{$widgets_by_attr->{$update_object_attr}};
 		$self->get_proxy($_)->update_by_aggregation
 		    for keys %{$self->get_aggregated_by_href->{$update_object_attr}};
@@ -352,6 +397,8 @@ sub update_object_widgets {
 
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "update_object_widgets($name)\n";
+
+        $name = $self->norm_object_attr($name);
 
 	my $object       = $self->get_object($name);
 	my $change_state = defined $object ? '' : 'empty,inactive';
@@ -773,7 +820,7 @@ where a method call is somewhat expensive.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004-2005 by Jörn Reder.
+Copyright 2004-2006 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

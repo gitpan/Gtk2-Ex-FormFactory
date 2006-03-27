@@ -1,8 +1,41 @@
-$Id: Changes,v 1.19 2005/12/28 11:05:08 joern Exp $
+$Id: Changes,v 1.23 2006/03/27 19:17:22 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
 
+0.60 Mon Mar 27, 2006, joern
+    Features:
+    - Gtk2::Ex::FormFactory::Menu
+      - Add 'active_cond' and 'active_depends' keys to the
+        menu item definition to control widget activity not
+        just on a per object basis.
+    - Gtk2::Ex::FormFactory::Widget:
+      - active_cond may return not just a boolean but one of
+        the strings 'insensitive', 'invisible', 'sensitive',
+        'visible' to get the corresponding state.
+    - Gtk2::Ex::FormFactory::ExecFlow:
+      - New widget for displaying Event::ExecFlow job plans
+    - Gtk2::Ex::FormFactory::VPaned:
+      - New container widget for Gtk2::VPaned
+    - Gtk2::Ex::FormFactory::ToggleButton:
+      - Stock image support added
+    - Gtk2::Ex::FormFactory::Context
+      - Some internal cleanup to reduce memory footprint
+
+    Bugfixes:
+    - Gtk2::Ex::FormFactory::Menu
+      - On cleanup deregistering of objects the menu
+        depends on was not complete.
+    - Gtk2::Ex::FormFactory::Context
+      - Widgets with active_depends => "object.attr" (not just
+        an object) weren't updated if the object changed.
+
 0.59 Wed Dec 28, 2005, joern
+    Features:
+    - Default layout implementaion for width/height now uses
+      set_size_request() only for non-window widgets and
+      set_default_size() for windows, which is better in
+      general.
+
     Bugfixes:
     - Small layout issue of buttons with stock image and
       a defined but empty label fixed.

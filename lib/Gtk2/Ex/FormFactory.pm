@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.59";
+$VERSION = "0.60";
 
 use strict;
 
@@ -571,7 +571,7 @@ documentation for a complete list of possible mouse cursors.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004-2005 by Jörn Reder.
+Copyright 2004-2006 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as

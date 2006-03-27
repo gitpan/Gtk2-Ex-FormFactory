@@ -1,30 +1,52 @@
-package Gtk2::Ex::FormFactory::ProgressBar;
+package Gtk2::Ex::FormFactory::VPaned;
 
 use strict;
 
-use base qw( Gtk2::Ex::FormFactory::Widget );
+use base qw( Gtk2::Ex::FormFactory::Container );
 
-sub get_type { "progress_bar" }
+sub get_type { "vpaned" }
 
 sub object_to_widget {
 	my $self = shift;
 
-	my $status           = $self->get_object_value;
-	my $gtk_progress_bar = $self->get_gtk_widget;
-
-	$gtk_progress_bar->set_fraction ($status->{fraction});
-	$gtk_progress_bar->set_text     ($status->{text});
+	$self->get_gtk_widget->set_position ( $self->get_object_value );
 
 	1;
 }
 
-sub empty_widget {
+sub widget_to_object {
+	my $self = shift;
+
+	$self->set_object_value ($self->get_gtk_widget->get("position"));
+	
+	1;
+}
+
+sub backup_widget_value {
 	my $self = shift;
 	
-	my $gtk_progress_bar = $self->get_gtk_widget;
+	$self->set_backup_widget_value (self->get_gtk_widget->get("position"));
+	
+	1;
+}
 
-	$gtk_progress_bar->set_fraction (0);
-	$gtk_progress_bar->set_text     ("");
+sub restore_widget_value {
+	my $self = shift;
+	
+	self->get_gtk_widget->set_position ($self->get_backup_widget_value);
+	
+	1;
+}
+
+sub connect_changed_signal {
+	my $self = shift;
+
+	$self->get_gtk_widget->signal_connect (
+	    move_handle => sub {
+                $self->widget_value_changed;
+                1;
+            },
+	);
 	
 	1;
 }
@@ -35,42 +57,26 @@ __END__
 
 =head1 NAME
 
-Gtk2::Ex::FormFactory::ProgressBar - A ProgressBar in a FormFactory framework
+Gtk2::Ex::FormFactory::VPaned - A VPaned container in a FormFactory framework
 
 =head1 SYNOPSIS
 
-  Gtk2::Ex::FormFactory::ProgressBar->new (
+  Gtk2::Ex::FormFactory::VPaned->new (
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
 
 =head1 DESCRIPTION
 
-This class implements a ProgressBar in a Gtk2::Ex::FormFactory framework.
-The state of the progress bar is the value of the associated application
-object attribute.
-
-This value must be a hash reference defining these keys:
-
-=over 10
-
-=item B<fraction>
-
-A float value between 0.0 and 1.0 representing the length of the
-progress bar.
-
-=item B<text>
-
-An optional text displayed in the progress bar.
-
-=back
+This class implements a VPaned container in a Gtk2::Ex::FormFactory
+framework.
 
 =head1 OBJECT HIERARCHY
 
   Gtk2::Ex::FormFactory::Intro
 
   Gtk2::Ex::FormFactory::Widget
-  +--- Gtk2::Ex::FormFactory::ProgressBar
+  +--- Gtk2::Ex::FormFactory::VPaned
 
   Gtk2::Ex::FormFactory::Layout
   Gtk2::Ex::FormFactory::Rules
@@ -80,7 +86,7 @@ An optional text displayed in the progress bar.
 =head1 ATTRIBUTES
 
 This module has no additional attributes over those derived
-from Gtk2::Ex::FormFactory::Widget.
+from Gtk2::Ex::FormFactory::Widget. 
 
 =head1 AUTHORS
 

@@ -9,6 +9,7 @@ use strict;
 @Gtk2::Ex::FormFactory::DialogButtons::ISA	= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::Entry::ISA		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::Expander::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
+@Gtk2::Ex::FormFactory::ExecFlow::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::Form::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::GtkWidget::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::HBox::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
@@ -27,6 +28,7 @@ use strict;
 @Gtk2::Ex::FormFactory::ToggleButton::ISA 	= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::VBox::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::VSeparator::ISA 	= qw( Gtk2::Ex::FormFactory::Loader );
+@Gtk2::Ex::FormFactory::VPaned::ISA 	        = qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::Window::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 @Gtk2::Ex::FormFactory::YesNo::ISA 		= qw( Gtk2::Ex::FormFactory::Loader );
 
@@ -63,7 +65,7 @@ widget classes and has no external interface.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004-2005 by Jörn Reder.
+Copyright 2004-2006 by Jörn Reder.
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as
