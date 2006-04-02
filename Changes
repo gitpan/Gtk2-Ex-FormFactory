@@ -1,6 +1,21 @@
-$Id: Changes,v 1.23 2006/03/27 19:17:22 joern Exp $
+$Id: Changes,v 1.24 2006/04/02 21:28:11 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.61 Sun Apr 2, 2006, joern
+    Features:
+    - You can check whether an application object was changed
+      with the GUI using the new Proxy's 'object_changed'
+      attribute. Additionally you can control which attributes
+      shouldn't affect the object's changed state with a
+      regex passed as 'changes_attr_filter' when adding the
+      object to the Context.
+    - You can add icons to Notebook tab titles by prefixing the
+      title with the stock item named in square brackets.
+
+    Bugfix:
+    - Prevent double object update triggering when switching
+      Notebook tabs and Radiobuttons.
 
 0.60 Mon Mar 27, 2006, joern
     Features:

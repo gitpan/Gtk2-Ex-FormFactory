@@ -14,8 +14,12 @@ sub get_attr_activity_href	{ shift->{attr_activity_href}		}
 sub get_attr_accessors_href	{ shift->{attr_accessors_href}		}
 sub get_attr_aggregate_href	{ shift->{attr_aggregate_href}		}
 sub get_accessor		{ shift->{accessor}			}
+sub get_changes_attr_filter     { shift->{changes_attr_filter}          }
 
 sub get_buffered		{ 0 }
+
+sub get_object_changed          { shift->{object_changed}               }
+sub set_object_changed          { shift->{object_changed}       = $_[1] }
 
 sub new {
 	my $class = shift;
@@ -24,8 +28,8 @@ sub new {
 	@par{'context','object','name','set_prefix','get_prefix'};
 	my  ($attr_accessors_href, $attr_activity_href, $aggregated_by) =
 	@par{'attr_accessors_href','attr_activity_href','aggregated_by'};
-	my  ($accessor) =
-	$par{'accessor'};
+	my  ($accessor, $changes_attr_filter) =
+	@par{'accessor','changes_attr_filter'};
 
 	$attr_accessors_href ||= {},
 	$attr_activity_href  ||= {};
@@ -41,6 +45,7 @@ sub new {
 		attr_activity_href	=> $attr_activity_href,
 		attr_accessors_href	=> $attr_accessors_href,
 		accessor		=> $accessor,
+                changes_attr_filter     => $changes_attr_filter,
 		attr_aggregate_href	=> {},
 	}, $class;
 
@@ -74,12 +79,17 @@ sub set_object {
 	#-- $self->{object} was deleted in the meantime)
 	return if eval { $object eq $self->{object} };
 
+        #-- reset changed status
+        $self->set_object_changed(0);
+
+        #-- set object
 	$self->{object} = $object;
 	
+        #-- Update all object widgets
 	my $context = $self->get_context;
-
 	$context->update_object_widgets ($self->get_name);
 
+        #-- Update aggregated objects
 	my $attr_aggregate_href = $self->get_attr_aggregate_href;
 	my ($attr, $child_object_name, $child_object);
 
@@ -121,6 +131,8 @@ sub set_attr {
 		$self      = $self->get_context->get_proxy($1);
 		$attr_name = $2;
 	}
+
+        $self->object_changed($attr_name);
 
 	my $accessor = $self->get_accessor;
 	my $object   = $self->get_object;
@@ -166,6 +178,7 @@ sub set_attrs {
 	$accessor = $self->get_accessor;
 	
 	while ( ($attr_name, $attr_value) = each %{$attrs_href} ) {
+                $self->object_changed($attr_name);
 		if ( $accessor ) {
 			&$accessor($object, $attr_name, $attr_value);
 		} else {
@@ -287,6 +300,26 @@ sub get_attr_activity {
 	return &$attr_activity($object);
 }
 
+sub object_changed {
+        my $self = shift;
+        my ($attr_name) = @_;
+        
+        my $changes_attr_filter = $self->get_changes_attr_filter;
+
+        if ( !$changes_attr_filter ||
+             $attr_name !~ $changes_attr_filter ) {
+            $self->set_object_changed(1);
+            my $aggregated_by = $self->get_aggregated_by;
+            if ( $aggregated_by ) {
+                my $context = $self->get_context;
+                my ($object, $attr) = $context->norm_object_attr($aggregated_by);
+                $context->get_proxy($object)->object_changed($attr);
+            }
+        }
+        
+        1;
+}
+
 1;
 
 __END__
@@ -309,7 +342,9 @@ Gtk2::Ex::FormFactory::Proxy - Proxy class for application objects
     get_prefix           => Method prefix for read accessors,
     attr_accessors_href  => Hashref with accessor callbacks,
     attr_activity_href   => Hashref with activity callbacks,
-    aggregated_by        => Fully qualified attribute of the parent
+    aggregated_by        => Fully qualified attribute of the parent,
+    changes_attr_filter  => Regex for attributes which should not trigger
+                            the object's 'changed' status
   );
 
 =head1 DESCRIPTION
@@ -318,8 +353,14 @@ This class implements a generic proxy mechanism for accessing
 application objects and their attributes. It defines attributes
 of the associated object are accessed. You never instantiate
 objects of this class by yourself; they're created internally by
-Gtk2::Ex::FormFactory::Context, but you may use the proxy objects
-for updates which affect the application object and the GUI as well.
+Gtk2::Ex::FormFactory::Context when adding objects with the
+Context->add_object() method.
+
+But you may use the proxy objects e.g. for updates which affect the
+application object and the GUI as well.
+
+You can receive Proxy objects using the Gtk2::Ex::FormFactory::Context->get_proxy()
+method.
 
 =head1 OBJECT HIERARCHY
 
@@ -373,6 +414,16 @@ Fully qualified attribute of the parent aggregating this object
 
 Refer to Gtk2::Ex::FormFactory::Context->add_object for details.
 
+=item B<changes_attr_filter> = REGEX [optional]
+
+Refer to Gtk2::Ex::FormFactory::Context->add_object for details.
+
+=item B<object_changed> = BOOLEAN
+
+This flag indicates whether the object represented by this Proxy
+was changed. You may set this attribute to reset the object's
+changed state.
+
 =back
 
 =head1 METHODS
@@ -415,6 +466,8 @@ updates all dependend Widgets on the GUI accordingly.
 =item $activity = $proxy->B<get_attr_activity> ($attr)
 
 Returns the current activity state of B<$attr>.
+
+=item 
 
 =back
 

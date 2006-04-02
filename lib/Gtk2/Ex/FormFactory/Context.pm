@@ -84,8 +84,8 @@ sub add_object {
 	@par{'name','object','set_prefix','get_prefix','attr_activity_href'};
 	my  ($attr_depends_href, $attr_accessors_href, $update_hook) =
 	@par{'attr_depends_href','attr_accessors_href','update_hook'};
-	my  ($aggregated_by, $accessor, $buffered) =
-	@par{'aggregated_by','accessor','buffered'};
+	my  ($aggregated_by, $accessor, $buffered, $changes_attr_filter) =
+	@par{'aggregated_by','accessor','buffered','changes_attr_filter'};
 
 	$set_prefix ||= $self->get_default_set_prefix;
 	$get_prefix ||= $self->get_default_get_prefix;
@@ -138,6 +138,7 @@ sub add_object {
 		    attr_accessors_href	=> $attr_accessors_href,
 		    aggregated_by	=> $aggregated_by,
 		    accessor		=> $accessor,
+                    changes_attr_filter => $changes_attr_filter,
 	);
 }
 
@@ -466,6 +467,9 @@ Gtk2::Ex::FormFactory::Context - Context in a FormFactory framework
     attr_depends_href   => Hash defining attribute dependencies,
     attr_accessors_href => Hash of CODEREFS which override correspondent
     			   accessors in this Context,
+    buffered            => Indicates whether changes should be buffered,
+    changes_attr_filter => Regex for attributes which should not trigger
+                           the object's 'changed' status
   );
 
 =head1 DESCRIPTION
@@ -719,6 +723,18 @@ you can use a list reference:
 
 If set to TRUE this activates buffering for this object. Please
 refer to the BUFFERED CONTEXT OBJECTS chapter for details.
+
+=item B<changes_attr_filter> = REGEX [OPTIONAL]
+
+Gtk2::Ex::FormFactory maintains a flag indicating whether an
+object was changed. Under special circumstances you want
+specific attributes not affecting this "changed" state of
+an object. You can specify an regular expression here. Changes
+of attributes matching this expression won't touch the
+changes state of the object.
+
+To receive or change the object's changed state refer to
+the B<object_changed> attribute of Gtk2::Ex::FormFactory::Proxy.
 
 =back
 

@@ -15,8 +15,10 @@ sub object_to_widget {
 	#-- handler...
 	Glib::Idle->add (
 	    sub {
+                $self->set_in_update(1);
 	    	$self->get_gtk_widget->set ( page => $self->get_object_value )
 			if defined $self->get_object_value;
+                $self->set_in_update(0);
 		0;
 	    }
 	);
@@ -93,6 +95,11 @@ B<title> attribute all containers can be turned into a notebook page.
 
 The widget title will automatically render to the title of the page
 resp as the text appearing on the page's tab.
+
+You can add an icon to the Notebook tab by prefixing the widget
+title with a stock item name in square brackets, e.g. this way:
+
+  title => "[gtk-cdrom] CDROM Contents",
 
 =back
 

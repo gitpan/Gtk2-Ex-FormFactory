@@ -994,10 +994,21 @@ sub add_widget_to_notebook {
 	
 	$widget->get_gtk_parent_widget->set ( border_width => $DEFAULT_SPACING );
 	
-	my $label = $widget->get_title ne '' ?
-		Gtk2::Label->new($widget->get_title) :
-		undef;
-	
+	my $label;
+        if ( $widget->get_title =~ /^\[([^\]]+)\]\s*(.*)$/ ) {
+            my ($stock, $title) = ($1, $2);
+	    my $hbox      = Gtk2::HBox->new;
+	    my $image     = Gtk2::Image->new_from_stock($stock,"small-toolbar");
+	    my $gtk_label = Gtk2::Label->new($title);
+	    $hbox->pack_start($image, 0, 1, 0);
+	    $hbox->pack_start($gtk_label, 0, 1, 0);
+            $label = $hbox;
+            $label->show_all;
+        }
+        else {
+            $label = Gtk2::Label->new($widget->get_title);
+        }
+
 	$notebook->get_gtk_widget->append_page(
 		$widget->get_gtk_parent_widget,
 		$label

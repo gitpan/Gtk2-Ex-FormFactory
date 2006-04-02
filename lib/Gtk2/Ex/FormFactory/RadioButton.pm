@@ -65,7 +65,7 @@ sub connect_changed_signal {
 	my $self = shift;
 	
 	$self->get_gtk_widget->signal_connect (
-	  toggled => sub { $self->widget_value_changed }
+	  "released" => sub { $self->widget_value_changed }
 	);
 	
 	1;
