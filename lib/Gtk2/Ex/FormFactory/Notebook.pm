@@ -9,19 +9,17 @@ sub get_type { "notebook" }
 sub object_to_widget {
 	my $self = shift;
 
-	#-- Workaround for a strange problem... Sometimes the notebook
-	#-- page isn't selected, probably a race condition somewhere
-	#-- in the Gtk2 module. But it works with a Timeout or Idle
-	#-- handler...
-	Glib::Idle->add (
-	    sub {
-                $self->set_in_update(1);
-	    	$self->get_gtk_widget->set ( page => $self->get_object_value )
-			if defined $self->get_object_value;
-                $self->set_in_update(0);
-		0;
-	    }
-	);
+        my $page = $self->get_object_value;
+
+        if ( defined $page ) {
+            #-- the page widget must be visible, otherwise
+            #-- it can't be selected
+            my $page_widget = $self->get_gtk_widget->get_nth_page($page);
+            $page_widget->show;
+            
+            #-- now set the page
+    	    $self->get_gtk_widget->set ( page => $page );
+        }
 
 	1;
 }
@@ -38,7 +36,14 @@ sub connect_changed_signal {
 	my $self = shift;
 	
 	$self->get_gtk_widget->signal_connect_after (
-	  'switch-page' => sub { $self->widget_value_changed },
+	    'switch-page' => sub {
+                #-- Child activity updates may trigger changed signals
+                #-- even if no object is associated with this notebook
+                #-- yet. This will lead to an exception in Proxy->set_attr
+                #-- and is prevented here.
+                return 1 unless defined $self->get_proxy->get_object;
+                $self->widget_value_changed;
+            },
 	);
 	
 	1;

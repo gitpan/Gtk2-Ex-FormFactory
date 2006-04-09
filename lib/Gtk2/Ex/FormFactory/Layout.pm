@@ -1009,6 +1009,8 @@ sub add_widget_to_notebook {
             $label = Gtk2::Label->new($widget->get_title);
         }
 
+        $widget->set_gtk_label_widget($label);
+
 	$notebook->get_gtk_widget->append_page(
 		$widget->get_gtk_parent_widget,
 		$label

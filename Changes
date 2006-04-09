@@ -1,6 +1,17 @@
-$Id: Changes,v 1.24 2006/04/02 21:28:11 joern Exp $
+$Id: Changes,v 1.25 2006/04/09 10:44:21 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.62 Sun Apr 9, 2006, joern
+    Bugfixes:
+    - Associate tab label widgets with the page content widget,
+      so if the page gets inactive the label greys out as well.
+    - Notebook:  show page before switching to it, otherwise
+      page-switching is ignored. This was workarounded until now
+      by a delayed page-switching, which didn't work with recent
+      gtk2 versions anymore, so the true fix for this issue was
+      overdue ;) Thanks to Alex Petkov <alexandphyllis AT excite.com>
+      for the detailed bug report and debugging info.
 
 0.61 Sun Apr 2, 2006, joern
     Features:
