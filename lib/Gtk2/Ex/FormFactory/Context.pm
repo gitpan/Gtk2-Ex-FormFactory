@@ -151,6 +151,7 @@ sub remove_object {
 	die "Object with name '$name' not registered to this context"
 		unless $proxies_by_name->{$name};
 
+	$proxies_by_name->{$name}->set_object(undef);
 	delete $proxies_by_name->{$name};
 
 	1;

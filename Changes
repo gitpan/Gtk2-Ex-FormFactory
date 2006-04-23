@@ -1,6 +1,15 @@
-$Id: Changes,v 1.25 2006/04/09 10:44:21 joern Exp $
+$Id: Changes,v 1.26 2006/04/23 14:15:08 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.63 Sun Apr 23, 2006, joern
+    Bugfixes:
+    - Gtk2::Ex::FormFactory::Notebook:
+      - fixed an exception which occured if no object is
+        associated with the Notebook
+    - Gtk2::Ex::FormFactory::Layout
+      - fixed wrong set_gtk_widget/set_gtk_parent_widget for
+        Gtk2::Ex::FormFactory::GtkWidget objects
 
 0.62 Sun Apr 9, 2006, joern
     Bugfixes:

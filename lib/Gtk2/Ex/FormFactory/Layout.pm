@@ -813,7 +813,7 @@ sub build_gtk_widget {
 	my $self = shift;
 	my ($gtk_widget) = @_;
 	
-	$gtk_widget->set_gtk_parent_widget($gtk_widget->get_custom_gtk_widget);
+	$gtk_widget->set_gtk_widget($gtk_widget->get_custom_gtk_widget);
 	
 	1;
 }

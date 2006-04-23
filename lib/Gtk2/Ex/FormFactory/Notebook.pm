@@ -41,7 +41,8 @@ sub connect_changed_signal {
                 #-- even if no object is associated with this notebook
                 #-- yet. This will lead to an exception in Proxy->set_attr
                 #-- and is prevented here.
-                return 1 unless defined $self->get_proxy->get_object;
+                return 1 unless $self->get_object &&
+                                defined $self->get_proxy->get_object;
                 $self->widget_value_changed;
             },
 	);
