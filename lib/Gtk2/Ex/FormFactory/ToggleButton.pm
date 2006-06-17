@@ -25,8 +25,8 @@ sub new {
 
 	my $self = $class->SUPER::new(@_);
 	
-        $true_label  = "Yes" unless defined $true_label;
-        $false_label = "No"  unless defined $false_label;
+        $true_label  = "Yes" if !defined($true_label)  && !$stock;
+        $false_label = "No"  if !defined($false_label) && !$stock;
         $label       = $false_label unless defined $label;
         
 	$self->set_label($label);

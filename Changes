@@ -1,6 +1,21 @@
-$Id: Changes,v 1.26 2006/04/23 14:15:08 joern Exp $
+$Id: Changes,v 1.27 2006/06/17 13:29:10 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.64 Sat Jun 17, 2006, joern
+    Features:
+    - Gtk2::Ex::FormFactory
+      - Added options 'yes_label' and 'no_label' to open_confirm_window().
+    - Gtk2::Ex::FormFactory::Button
+      - Added 'with_repeat' option, which triggers the callback
+        continuously as long button is pressed.
+
+    Bugfixes:
+    - Gtk2::Ex::FormFactory::Label:
+      - Set initial text only if the widget object has no associated
+        object attribute.
+    - Gtk2::Ex::FormFactory::ToggleButton:
+      - Set button label only if no stock icon is given.
 
 0.63 Sun Apr 23, 2006, joern
     Bugfixes:

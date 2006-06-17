@@ -2,6 +2,7 @@ package Gtk2::Ex::FormFactory::Widget;
 
 use strict;
 use Carp;
+use Scalar::Util qw(weaken);
 
 my $NAME_CNT = 0;
 my %WIDGET_NAMES;
@@ -83,8 +84,8 @@ sub get_backup_widget_value	{ shift->{backup_widget_value}		}
 sub get_widget_activity		{ shift->{widget_activity}		}
 sub get_built			{ shift->{built}			}
 #------------------------------------------------------------------------
-sub set_form_factory		{ shift->{form_factory}		= $_[1]	}
-sub set_parent			{ shift->{parent}		= $_[1]	}
+sub set_form_factory		{ weaken( shift->{form_factory}	= $_[1])}
+sub set_parent			{ weaken( shift->{parent}       = $_[1])}
 sub set_gtk_widget		{ shift->{gtk_widget}		= $_[1]	}
 sub set_gtk_parent_widget	{ shift->{gtk_parent_widget}	= $_[1]	}
 sub set_gtk_properties_widget	{ shift->{gtk_properties_widget}= $_[1]	}
@@ -663,7 +664,7 @@ sub widget_value_changed {
 
 		#-- Apply all changes and update dependent
 		#-- widgets accordingly
-		$self->apply_changes;
+		$self->apply_changes if $object;
 
 		#-- Call Widget's change_after_hook
 		my $changed_hook_after = $self->get_changed_hook_after;

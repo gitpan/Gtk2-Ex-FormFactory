@@ -37,12 +37,6 @@ sub connect_changed_signal {
 	
 	$self->get_gtk_widget->signal_connect_after (
 	    'switch-page' => sub {
-                #-- Child activity updates may trigger changed signals
-                #-- even if no object is associated with this notebook
-                #-- yet. This will lead to an exception in Proxy->set_attr
-                #-- and is prevented here.
-                return 1 unless $self->get_object &&
-                                defined $self->get_proxy->get_object;
                 $self->widget_value_changed;
             },
 	);

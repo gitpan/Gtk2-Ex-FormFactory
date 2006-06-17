@@ -6,6 +6,23 @@ use base qw( Gtk2::Ex::FormFactory::Container );
 
 sub get_type { "form" }
 
+sub get_label_top_align         { shift->{label_top_align}              }
+sub set_label_top_align         { shift->{label_top_align}      = $_[1] }
+
+sub new {
+	my $class = shift;
+	my %par = @_;
+	my ($label_top_align) = $par{'label_top_align'};
+
+	my $self = $class->SUPER::new(@_);
+	
+	$self->set_label_top_align($label_top_align);
+	
+	return $self;
+}
+
+
+
 1;
 
 __END__
@@ -17,6 +34,7 @@ Gtk2::Ex::FormFactory::Form - A Form in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::Form->new (
+    label_top_align         => Align all labels at the top of their row,
     ...
     Gtk2::Ex::FormFactory::Container attributes
     Gtk2::Ex::FormFactory::Widget attributes
@@ -44,8 +62,19 @@ object attributes are associated with a Form.
 
 =head1 ATTRIBUTES
 
-This module has no additional attributes over those derived
-from Gtk2::Ex::FormFactory::Container.
+Attributes are handled through the common get_ATTR(), set_ATTR()
+style accessors, but they are mostly passed once to the object
+constructor and must not be altered after the associated FormFactory
+was built.
+
+=over 4
+
+=item B<label_top_align> = BOOLEAN [optional]
+
+If you set this option all form element lables are aligned to
+the top of their row. By default labels are centered vertically.
+
+=back
 
 =head1 AUTHORS
 

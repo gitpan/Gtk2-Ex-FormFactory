@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.63";
+$VERSION = "0.64";
 
 use strict;
 
@@ -8,6 +8,7 @@ use base qw( Gtk2::Ex::FormFactory::Container );
 
 use Gtk2;
 use Gtk2::Ex::FormFactory::Loader;
+use Scalar::Util;
 
 sub get_type { "form_factory" }
 
@@ -226,8 +227,12 @@ sub open_confirm_window {
 	my %par = @_;
 	my  ($message, $yes_callback, $no_callback, $position, $with_cancel) =
 	@par{'message','yes_callback','no_callback','position','with_cancel'};
+        my  ($yes_label, $no_label) =
+        @par{'yes_label','no_label'};
 
 	$position  ||= "center-on-parent";
+        $yes_label ||= "gtk-yes";
+        $no_label  ||= "gtk-no";
 
 	my $confirm = Gtk2::MessageDialog->new_with_markup (
 		$self->get_form_factory_gtk_window,
@@ -238,8 +243,8 @@ sub open_confirm_window {
 	);
 
 	$confirm->add_buttons ("gtk-cancel", "cancel") if $with_cancel;
-	$confirm->add_buttons ("gtk-no",     "no");
-	$confirm->add_buttons ("gtk-yes",    "yes");
+	$confirm->add_buttons ($no_label,     "no");
+	$confirm->add_buttons ($yes_label,    "yes");
 
 	$confirm->signal_connect("response", sub {
 		my ($widget, $answer) = @_;
@@ -534,7 +539,9 @@ The following parameters are known:
                 answered your question with "Yes"
   no_callback   Code reference to be called if the user
                 answered your question with "No"
-
+  yes_label     (Stock-)Label for the yes button. Default 'gtk-yes'
+  no_label      (Stock-)Label for the no button. Default 'gtk-no'
+  
 =item $form_factory->B<open_message_window> ( parameters )
 
 This is a convenience method to open a message window

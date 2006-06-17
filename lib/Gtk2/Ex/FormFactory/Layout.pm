@@ -389,7 +389,7 @@ sub build_label {
 	my ($label) = @_;
 	
 	my $gtk_label = Gtk2::Label->new;
-	$gtk_label->set_text   ($label->get_label) if $label->get_label;
+	$gtk_label->set_text   ($label->get_label) if $label->get_label && !$label->get_attr;
 	$gtk_label->set_markup ($label->get_label) if $label->get_with_markup;
 	$gtk_label->set_markup ("<b>".$label->get_label."</b>")
 		if $label->get_label && $label->get_bold;
@@ -537,8 +537,6 @@ sub build_button {
 
 	my $gtk_button;
 
-# print "$gtk_button_class => '$label' ".(defined $label ? "DEF" : "UNDEF")."\n";;
-
         #-- Button with stock and text
 	if ( $stock and $label ne '' ) {
 		my $hbox = Gtk2::HBox->new;
@@ -570,10 +568,33 @@ sub build_button {
 
 	$button->set_gtk_widget($gtk_button);
 	
+        my $with_repeat  = $button->can("get_with_repeat") && $button->get_with_repeat;
 	my $clicked_hook = $button->get_clicked_hook;
-	
-	$gtk_button->signal_connect ( clicked => sub { $clicked_hook->($button) } )
-		if $clicked_hook;
+        
+        if ( $clicked_hook && !$with_repeat ) {
+            $gtk_button->signal_connect ( clicked => sub { $clicked_hook->($button) } );
+        }
+
+        if ( $clicked_hook && $with_repeat ) {
+            my $button_pressed;
+            my $timeout;
+            $gtk_button->signal_connect ( button_press_event => sub {
+                $clicked_hook->($button);
+                $button_pressed = 1;
+                $timeout = Glib::Timeout->add ( 80, sub {
+                    return 0 if $button_pressed == 0;
+                    ++$button_pressed;
+                    $clicked_hook->($button) if $button_pressed > 5;
+                    return 1;
+                } );
+                0;
+            });
+            $gtk_button->signal_connect ( button_release_event => sub {
+                Glib::Source->remove($timeout);
+                $button_pressed = 0;
+                0;
+            });
+        }
 	
 	1;
 }
@@ -853,8 +874,16 @@ sub add_widget_to_form {
 
 	if ( $widget->get_label ne '' and not $widget->has_label ) {
 		my $gtk_label = $self->create_label_widget ($widget);
-		$gtk_table->attach($gtk_label, 0, 1, $row, $row+1, 'fill', 'fill', 0, 0);
+
 		$widget->set_gtk_label_widget ($gtk_label);
+
+                if ( $form->get_label_top_align ) {
+                    my $gtk_align = Gtk2::Alignment->new(0, 0, 0, 0);
+                    $gtk_align->add($gtk_label);
+                    $gtk_label = $gtk_align;
+                }
+                
+		$gtk_table->attach($gtk_label, 0, 1, $row, $row+1, 'fill', 'fill', 0, 0);
 	}
 
 	if ( not $widget->get_expand_h ) {

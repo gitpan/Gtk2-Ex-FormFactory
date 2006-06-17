@@ -9,19 +9,23 @@ sub has_label	{ 1		}
 
 sub get_clicked_hook		{ shift->{clicked_hook}			}
 sub get_stock			{ shift->{stock}			}
+sub get_with_repeat             { shift->{with_repeat}                  }
 
 sub set_clicked_hook		{ shift->{clicked_hook}		= $_[1]	}
 sub set_stock			{ shift->{stock}		= $_[1]	}
+sub set_with_repeat             { shift->{with_repeat}          = $_[1] }
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my ($stock, $clicked_hook) = @par{'stock','clicked_hook'};
+	my  ($stock, $clicked_hook, $with_repeat) =
+        @par{'stock','clicked_hook','with_repeat'};
 
 	my $self = $class->SUPER::new(@_);
 
 	$self->set_stock($stock);
 	$self->set_clicked_hook($clicked_hook);
+	$self->set_with_repeat($with_repeat);
 	
 	return $self;
 }
@@ -39,6 +43,7 @@ Gtk2::Ex::FormFactory::Button - A Button in a FormFactory framework
   Gtk2::Ex::FormFactory::Button->new (
     clicked_hook => Callback CODEREF / Closure
     stock        => Name of a stock item for this button,
+    with_repeat  => Trigger callback continuously as long button is pressed
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -79,6 +84,12 @@ signal of the button.
 You may specify the name of a stock item here, which should be
 added to the button, e.g. 'gtk-edit' for the standard Gtk Edit
 stock item. You may combine B<stock> and B<label> arbitrarily.
+
+=item B<with_repeat> = BOOLEAN [optional]
+
+If you set this option the B<clicked_hook> is called
+continuously as long as the button is pressed, with a initial
+short delay, just similar to keyboard repetition.
 
 =back
 
