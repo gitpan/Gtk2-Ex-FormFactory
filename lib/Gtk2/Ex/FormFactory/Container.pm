@@ -65,6 +65,24 @@ sub new {
 	return $self;
 }
 
+sub debug_dump {
+    my $self = shift;
+    my ($level) = @_;
+
+    $self->SUPER::debug_dump($level);
+
+    foreach my $c ( @{$self->get_content} ) {
+        if ( $c ) {
+            $c->debug_dump($level+1);
+        }
+        else {
+            print "  "x($level+1),"UNDEF\n";
+        }
+    }
+
+    1;
+}
+
 sub build {
 	my $self = shift;
 
@@ -124,8 +142,8 @@ sub remove_child_widget {
 	
 	my $found;
 	my $i = 0;
-	for ( @{$self->get_content} ) {
-		$found = 1, last if $_ eq $child;
+	foreach my $c ( @{$self->get_content} ) {
+		$found = 1, last if $c eq $child;
 		++$i;
 	}
 
@@ -151,7 +169,9 @@ sub update_all {
 	my $self = shift;
 	
 	$self->SUPER::update(@_);
-	$_->update_all for @{$self->get_content};
+        foreach my $c ( @{$self->get_content} ) {
+            $c->update_all;
+        }
 	
 	1;
 }
@@ -160,7 +180,10 @@ sub apply_changes_all {
 	my $self = shift;
 	
 	$self->SUPER::apply_changes(@_);
-	$_->apply_changes_all for @{$self->get_content};
+        
+        foreach my $c ( @{$self->get_content} ) {
+            $c->apply_changes_all;
+        }
 	
 	1;
 }
@@ -169,7 +192,10 @@ sub commit_proxy_buffers_all {
 	my $self = shift;
 	
 	$self->SUPER::commit_proxy_buffers(@_);
-	$_->commit_proxy_buffers_all for @{$self->get_content};
+
+        foreach my $c ( @{$self->get_content} ) {
+            $c->commit_proxy_buffers_all;
+        }
 	
 	1;
 }
@@ -178,7 +204,10 @@ sub discard_proxy_buffers_all {
 	my $self = shift;
 	
 	$self->SUPER::discard_proxy_buffers(@_);
-	$_->discard_proxy_buffers_all for @{$self->get_content};
+
+        foreach my $c ( @{$self->get_content} ) {
+            $c->discard_proxy_buffers_all;
+        }
 	
 	1;
 }
@@ -187,7 +216,10 @@ sub connect_signals {
 	my $self = shift;
 	
 	$self->SUPER::connect_signals(@_);
-	$_->connect_signals for @{$self->get_content};
+
+        foreach my $c ( @{$self->get_content} ) {
+            $c->connect_signals;
+        }
 	
 	1;
 }
@@ -195,7 +227,10 @@ sub connect_signals {
 sub cleanup {
 	my $self = shift;
 	
-	$_->cleanup for @{$self->get_content};
+        foreach my $c ( @{$self->get_content} ) {
+            $c->cleanup;
+        }
+
 	$self->SUPER::cleanup(@_);
 
 	$self->set_content([]);

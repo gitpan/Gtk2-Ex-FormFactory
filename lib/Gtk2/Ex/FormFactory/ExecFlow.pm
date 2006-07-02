@@ -6,22 +6,40 @@ use base qw( Gtk2::Ex::FormFactory::Widget );
 
 sub get_type {"execflow"}
 
+sub get_add_columns             { shift->{add_columns}                  }
 sub get_path_by_id_href         { shift->{path_by_id_href}              }
+
+sub set_add_columns             { shift->{add_columns}          = $_[1] }
 sub set_path_by_id_href         { shift->{path_by_id_href}      = $_[1] }
+
+sub new {
+    my $class = shift;
+    my %par = @_;
+    my ($add_columns) = $par{'add_columns'};
+
+    $add_columns ||= [];
+
+    my $self = $class->SUPER::new(@_);
+
+    $self->set_add_columns($add_columns);
+
+    return $self;
+}
 
 sub build_widget {
     my $self = shift;
     
     my $model = Gtk2::TreeStore->new(
-        "Glib::String", "Glib::String", "Glib::String"
+        "Glib::String", "Glib::String", "Glib::String",
+        ("Glib::String") x @{$self->get_add_columns}
     );
     my $tree_view = Gtk2::TreeView->new_with_model($model);
 
-    for my $i ( 0..1 ) {
+    for my $i ( 0..1+@{$self->get_add_columns} ) {
         my $column = Gtk2::TreeViewColumn->new_with_attributes(
 	        "col$i",
 	        Gtk2::CellRendererText->new,
-	        'text' => $i
+	        'text' => $i < 2 ? $i : $i + 1
         );
         $tree_view->append_column($column);
     }
@@ -68,6 +86,13 @@ sub add_job_to_model {
     $model->set($iter, 1 => $job->get_progress_stats);
     $model->set($iter, 2 => $job->get_id);
 
+    my $i = 3;
+    foreach my $add_col ( @{$self->get_add_columns} ) {
+        my $method = "get_$add_col";
+        $model->set($iter, $i => $job->$method());
+        ++$i;
+    }
+
     my $path = $model->get_path($iter);
     $self->get_path_by_id_href->{$job->get_id} = $path;
 
@@ -94,6 +119,13 @@ sub update_job {
     $model->set($iter, 0 => $job->get_info);
     $model->set($iter, 1 => $job->get_progress_stats);
     
+    my $i = 3;
+    foreach my $add_col ( @{$self->get_add_columns} ) {
+        my $method = "get_$add_col";
+        $model->set($iter, $i => $job->$method());
+        ++$i;
+    }
+
     1;
 }
 

@@ -1,6 +1,11 @@
-$Id: Changes,v 1.27 2006/06/17 13:29:10 joern Exp $
+$Id: Changes,v 1.28 2006/07/02 13:24:14 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.65 Sun Jul 2, 2006, joern
+    Bugfixes:
+    - Don't use for() loops with global $_ iterator, which interacts
+      badly with application method calls which modify $_ as well
 
 0.64 Sat Jun 17, 2006, joern
     Features:

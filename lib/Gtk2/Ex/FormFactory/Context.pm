@@ -381,13 +381,20 @@ sub update_object_attr_widgets {
 	my $depend_trigger_href  = $self->get_depend_trigger_href;
 	my $widget_activity_href = $self->get_widget_activity_href;
 
-	$_->update for values %{$widgets_by_attr->{$object_attr}};
-	$_->update for values %{$widget_activity_href->{$object_attr}};
+        foreach my $w ( values %{$widgets_by_attr->{$object_attr}} ) {
+            $w->update;
+        }
+        foreach my $w ( values %{$widget_activity_href->{$object_attr}} ) {
+            $w->update;
+        }
 
 	foreach my $update_object_attr ( keys %{$depend_trigger_href->{$object_attr}} ) {
-		$_->update for values %{$widgets_by_attr->{$update_object_attr}};
-		$self->get_proxy($_)->update_by_aggregation
-		    for keys %{$self->get_aggregated_by_href->{$update_object_attr}};
+                foreach my $w ( values %{$widgets_by_attr->{$update_object_attr}} ) {
+                    $w->update;
+                }
+                foreach my $name ( keys %{$self->get_aggregated_by_href->{$update_object_attr}} ) {
+                    $self->get_proxy($name)->update_by_aggregation;
+                }
 	}
 
 	1;
@@ -406,11 +413,15 @@ sub update_object_widgets {
 	my $change_state = defined $object ? '' : 'empty,inactive';
 
 	my $widgets_by_object = $self->get_widgets_by_object;
-	$_->update($change_state)
-		for values %{$widgets_by_object->{$name}};
+        
+        foreach my $w ( values %{$widgets_by_object->{$name}} ) {
+            $w->update($change_state);
+        }
 
 	my $widget_activity_href = $self->get_widget_activity_href;
-	$_->update for values %{$widget_activity_href->{$name}};
+        foreach my $w ( values %{$widget_activity_href->{$name}} ) {
+            $w->update($change_state);
+        }
 
 	my $update_hook = $self->get_update_hooks_by_object->{$name};
 	&$update_hook($object) if $update_hook;
@@ -430,8 +441,9 @@ sub update_object_widgets_activity {
 
 	my $widgets_by_object = $self->get_widgets_by_object;
 
-	$_->update($activity)
-		for values %{$widgets_by_object->{$name}};
+        foreach my $w ( values %{$widgets_by_object->{$name}} ) {
+            $w->update;
+        }
 
 	1;
 }

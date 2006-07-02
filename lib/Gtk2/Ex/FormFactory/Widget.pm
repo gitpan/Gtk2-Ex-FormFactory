@@ -219,6 +219,14 @@ sub new {
 	return $self;
 }
 
+sub debug_dump {
+    my $self = shift;
+    my ($level) = @_;
+    print "  "x$level;
+    print $self->{name}."|".$self->{attr}."\n";
+    1;
+}
+
 #========================================================================
 # Cleanup of widget data; break circular references
 #========================================================================
