@@ -10,20 +10,23 @@ sub has_label	{ 1		}
 sub get_clicked_hook		{ shift->{clicked_hook}			}
 sub get_stock			{ shift->{stock}			}
 sub get_with_repeat             { shift->{with_repeat}                  }
+sub get_image                   { shift->{image}                        }
 
 sub set_clicked_hook		{ shift->{clicked_hook}		= $_[1]	}
 sub set_stock			{ shift->{stock}		= $_[1]	}
 sub set_with_repeat             { shift->{with_repeat}          = $_[1] }
+sub set_image                   { shift->{image}                = $_[1] }
 
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my  ($stock, $clicked_hook, $with_repeat) =
-        @par{'stock','clicked_hook','with_repeat'};
+	my  ($stock, $clicked_hook, $with_repeat, $image) =
+        @par{'stock','clicked_hook','with_repeat','image'};
 
 	my $self = $class->SUPER::new(@_);
 
 	$self->set_stock($stock);
+	$self->set_image($image);
 	$self->set_clicked_hook($clicked_hook);
 	$self->set_with_repeat($with_repeat);
 	
@@ -43,7 +46,8 @@ Gtk2::Ex::FormFactory::Button - A Button in a FormFactory framework
   Gtk2::Ex::FormFactory::Button->new (
     clicked_hook => Callback CODEREF / Closure
     stock        => Name of a stock item for this button,
-    with_repeat  => Trigger callback continuously as long button is pressed
+    with_repeat  => Trigger callback continuously as long button is pressed,
+    image        => Filename of image to put on button,
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -90,6 +94,11 @@ stock item. You may combine B<stock> and B<label> arbitrarily.
 If you set this option the B<clicked_hook> is called
 continuously as long as the button is pressed, with a initial
 short delay, just similar to keyboard repetition.
+
+=item B<image> = FILENAME [optional]
+
+Use just this image for the button. No additional label is
+applied.
 
 =back
 

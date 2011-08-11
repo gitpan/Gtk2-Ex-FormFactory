@@ -6,10 +6,14 @@ use base qw( Gtk2::Ex::FormFactory::Widget );
 
 sub get_type { "text_view" }
 
+sub get_parse_tags              { shift->{parse_tags}                   }
+sub set_parse_tags              { shift->{parse_tags}           = $_[1] }
+
 sub new {
 	my $class = shift;
 	my %par = @_;
-	my ($scrollbars, $properties) = @par{'scrollbars','properties'};
+	my  ($scrollbars, $properties, $parse_tags) =
+        @par{'scrollbars','properties','parse_tags'};
 	
 	my $self = $class->SUPER::new(@_);
 	
@@ -21,6 +25,7 @@ sub new {
 
 	$self->set_scrollbars ($scrollbars);
 	$self->set_properties ($properties);
+	$self->set_parse_tags ($parse_tags);
 	
 	return $self;
 }
@@ -28,7 +33,29 @@ sub new {
 sub object_to_widget {
 	my $self = shift;
 
-	$self->get_gtk_widget->get_buffer->set_text($self->get_object_value);
+        if ( not $self->get_parse_tags ) {
+            $self->get_gtk_widget->get_buffer->set_text($self->get_object_value);
+            return;
+        }
+
+        my $buffer = $self->get_gtk_widget->get_buffer;
+        $buffer->set_text("");
+        my $iter   = $buffer->get_end_iter;
+        
+        my $text = $self->get_object_value;
+        
+        my $processed = 0;
+        while ( $text =~ m!(.*?)(<tag\s+name=["'])(.*?)(["']\s*>)(.*?)(</tag>)!sg ) {
+            my ($pre, $tag_open, $tag_name, $tag_rest, $content, $tag_close) =
+                ($1, $2, $3, $4, $5, $6);
+            $processed += length($1.$2.$3.$4.$5.$6);
+            $buffer->insert($iter, $pre);
+            $buffer->insert_with_tags_by_name($iter, $content, $tag_name);
+        }
+        
+        my $rest = substr($text, $processed);
+
+        $buffer->insert($iter, $rest);
 
 	1;
 }
@@ -108,6 +135,7 @@ Gtk2::Ex::FormFactory::TextView - A TextView in a FormFactory framework
 =head1 SYNOPSIS
 
   Gtk2::Ex::FormFactory::TextView->new (
+    parse_tags      => Boolean to indicate tag markup in value,
     ...
     Gtk2::Ex::FormFactory::Widget attributes
   );
@@ -136,8 +164,28 @@ settings.
 
 =head1 ATTRIBUTES
 
-This module has no additional attributes over those derived
-from Gtk2::Ex::FormFactory::Widget. 
+Attributes are handled through the common get_ATTR(), set_ATTR()
+style accessors, but they are mostly passed once to the object
+constructor and must not be altered after the associated FormFactory
+was built.
+
+=over 4
+
+=item B<parse_tags> = Boolean [optional]
+
+Set this to a true value to indicate the value of this widget
+contains tag markup. The syntax of tag markup is as follows:
+
+  <tag name="TAGNAME">Some text</tag>
+  <tag name='TAGNAME'>Some text</tag>
+
+Text with this markup will get the correspondent GtkTextView tag
+applied. Please refer to the Gtk2 documentation of GtkTextTagTable
+to learn more about tags. Use a B<customize_hook> of your
+Gtk2::Ex::FormFactory::TextView objekt to attach a custom tag table
+to this widget.
+
+=back
 
 =head1 AUTHORS
 

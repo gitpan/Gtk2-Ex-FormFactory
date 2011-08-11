@@ -12,6 +12,7 @@ lib/Gtk2/Ex/FormFactory/Expander.pm
 lib/Gtk2/Ex/FormFactory/Form.pm
 lib/Gtk2/Ex/FormFactory/GtkWidget.pm
 lib/Gtk2/Ex/FormFactory/HBox.pm
+lib/Gtk2/Ex/FormFactory/HPaned.pm
 lib/Gtk2/Ex/FormFactory/HSeparator.pm
 lib/Gtk2/Ex/FormFactory/Image.pm
 lib/Gtk2/Ex/FormFactory/Intro.pm

@@ -60,7 +60,10 @@ sub norm_object {
 sub norm_object_attr {
         my $self = shift;
         my ($object, $attr) = @_;
-        
+
+        $object = '' if ! defined $object;
+        $attr   = '' if ! defined $attr;
+
         return ""      if $object eq '' && $attr eq '';
         return $attr   if defined $attr && $attr =~ /\./;
         return $object if !defined $attr || $attr eq '';
@@ -87,8 +90,8 @@ sub add_object {
 	my  ($aggregated_by, $accessor, $buffered, $changes_attr_filter) =
 	@par{'aggregated_by','accessor','buffered','changes_attr_filter'};
 
-	$set_prefix ||= $self->get_default_set_prefix;
-	$get_prefix ||= $self->get_default_get_prefix;
+        $set_prefix = $self->get_default_set_prefix if ! defined $set_prefix;
+        $get_prefix = $self->get_default_get_prefix if ! defined $get_prefix;
 
 	if ( $attr_depends_href ) {
 		my $depend_trigger_href = $self->get_depend_trigger_href;

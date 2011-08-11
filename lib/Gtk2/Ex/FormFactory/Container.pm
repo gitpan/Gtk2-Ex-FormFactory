@@ -121,10 +121,13 @@ sub add_child_widget {
 
 	return unless $self->get_built;
 
-	my $layouter = $self->get_form_factory->get_layouter;
+        my $form_factory = $self->get_form_factory;
+	my $layouter     = $form_factory->get_layouter;
+
+        $form_factory->register_all_widgets($child);
 
 	$child->set_parent($self);
-	$child->set_form_factory($self->get_form_factory);
+	$child->set_form_factory($form_factory);
 	$child->build;
 
 	$layouter->add_widget_to_container($child, $self);

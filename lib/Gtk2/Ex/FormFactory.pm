@@ -1,6 +1,6 @@
 package Gtk2::Ex::FormFactory;
 
-$VERSION = "0.65";
+$VERSION = "0.67";
 
 use strict;
 
@@ -89,6 +89,8 @@ sub open {
 sub build {
 	my $self = shift;
 	
+        return if $self->get_built;
+        
 	#-- first register all widgets of this FormFactory
 	#-- to resolve cross references between Widgets
 	#-- during building.
@@ -184,21 +186,6 @@ sub register_widget {
 	my ($widget) = @_;
 
 	$self->get_widgets_by_name->{$widget->get_name} = $widget;
-
-=cut
-
-print "UNBUFFERED: widget=".$widget->get_name." object=".$widget->get_object."\n"
-if $widget->get_object &&
-	  !$self->get_context
-	        ->get_proxy($widget->get_object)
-	        ->get_buffered;
-print "BUFFERED: widget=".$widget->get_name." object=".$widget->get_object."\n"
-if $widget->get_object &&
-	  $self->get_context
-	        ->get_proxy($widget->get_object)
-	        ->get_buffered;
-					
-=cut
 
 	$self->set_buffered(0) if $widget->get_object &&
 				  !$self->get_context

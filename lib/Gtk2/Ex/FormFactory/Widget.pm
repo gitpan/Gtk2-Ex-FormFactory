@@ -141,7 +141,7 @@ sub new {
 	$active = 1 if not defined $active;
 
 	#-- Short notation: 'object.attr', so you may omit 'object'
-	if ( $attr =~ /^([^.]+)\.(.*)/ ) {
+	if ( $attr and $attr =~ /^([^.]+)\.(.*)/ ) {
 		$object = $1;
 		$attr   = $2;
 	}
@@ -398,6 +398,8 @@ sub update {
 	my $self = shift;
 	my ($change_state) = @_;
 
+        $change_state = '' if not defined $change_state;
+
 	$Gtk2::Ex::FormFactory::DEBUG &&
 	    print "update_widget(".$self->get_name.", $change_state)\n";
 
@@ -484,12 +486,20 @@ sub update_widget_activity {
 		$active = $self->get_widget_activity;
 	}
 
-	#-- Has this widget special activity conditions?
-	my $cond   = $self->get_active_cond;
-	my $object = $cond && $self->get_object ?
-			$self->get_proxy->get_object : undef;
-
-	$active = &$cond($object) if $cond;
+        #-- Get associated object (if there is one)
+        my $object_name = $self->get_object;
+        my $object      = $object_name ? $self->get_proxy->get_object : undef;
+        
+        #-- If there is an object association but the object is
+        #-- currently not defined, set widget inactive
+        if ( $object_name && ! defined $object ) {
+            $active = 0;
+        }
+        #-- Otherwise check if an additional condition needs to be applied
+        else {
+            my $cond = $self->get_active_cond;
+            $active = &$cond($object) if $cond;
+        }
 
         my $action = $self->get_inactive;
 
@@ -905,6 +915,7 @@ Gtk2::Ex::FormFactory framework.
   +--- Gtk2::Ex::FormFactory::Expander
   +--- Gtk2::Ex::FormFactory::ExecFlow
   +--- Gtk2::Ex::FormFactory::GtkWidget
+  +--- Gtk2::Ex::FormFactory::HPaned
   +--- Gtk2::Ex::FormFactory::HSeparator
   +--- Gtk2::Ex::FormFactory::Image
   +--- Gtk2::Ex::FormFactory::Label

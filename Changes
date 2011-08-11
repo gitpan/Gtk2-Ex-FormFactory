@@ -1,6 +1,31 @@
-$Id: Changes,v 1.28 2006/07/02 13:24:14 joern Exp $
+$Id: Changes,v 1.30 2011-08-11 10:38:17 joern Exp $
 
 Revision history and release notes for Gtk2::Ex::FormFactory:
+
+0.67 Thu Aug 11, 2011, joern
+    Features:
+    - Added parse_tags option to TextView. This way you
+      can easily create tagged text by using a simple
+      HTML based markup syntax: <tag name="...">Tagged text</tag>.
+    - Added HPaned widget
+
+0.66 Sun Nov 11, 2009, joern
+    Features:
+    - image attribute for Button and ToggleButton; set a
+      filename here to put an arbitrary image on a button
+      
+    Bugfixes:
+    - Applied patches from Jeff Hallock fixing a bunch of
+      "Use of uninitialized value" warnings. As well Jeff
+      fixed a bug which renders empty "getter" prefixes
+      unusable.
+    - build() Method now prevents building a Factory twice
+      by itself.
+    - Container->add_child_widget() missed registering
+      children to the Form Factory.
+    - Widget activity tracking called active check callback
+      without an object reference if no object was currently
+      set instead of rendering the widget inactive in that case.
 
 0.65 Sun Jul 2, 2006, joern
     Bugfixes:

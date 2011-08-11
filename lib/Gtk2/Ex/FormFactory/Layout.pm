@@ -344,6 +344,17 @@ sub build_vpaned {
         1;
 }
 
+sub build_hpaned {
+	my $self = shift;
+	my ($hpaned) = @_;
+        
+        my $gtk_hpaned = Gtk2::HPaned->new;
+        $gtk_hpaned->set ( position_set => 1 );
+        $hpaned->set_gtk_widget($gtk_hpaned);
+        
+        1;
+}
+
 sub build_vbox {
 	my $self = shift;
 	my ($vbox) = @_;
@@ -532,13 +543,21 @@ sub build_button {
 	my ($button, $gtk_button_class) = @_;
 
         $gtk_button_class ||= "Gtk2::Button";
+
 	my $stock = $button->get_stock;
 	my $label = $button->get_label;
+        my $image = $button->get_image;
 
 	my $gtk_button;
 
+        #-- Button with image
+        if ( $image ) {
+                my $image = Gtk2::Image->new_from_file($image);
+		$gtk_button = $gtk_button_class->new;
+		$gtk_button->add($image);
+        }
         #-- Button with stock and text
-	if ( $stock and $label ne '' ) {
+        elsif ( $stock and $label ne '' ) {
 		my $hbox = Gtk2::HBox->new;
 		my $image = Gtk2::Image->new_from_stock($stock,"small-toolbar");
 		my $gtk_label = Gtk2::Label->new($label);
@@ -872,7 +891,7 @@ sub add_widget_to_form {
 	my $xopt = $widget->get_expand_h ? ['fill','expand'] : ['fill'];
 	my $yopt = $widget->get_expand_v ? ['fill','expand'] : ['fill'];
 
-	if ( $widget->get_label ne '' and not $widget->has_label ) {
+        if ( (! defined $widget->get_label || $widget->get_label ne '') and not $widget->has_label ) {
 		my $gtk_label = $self->create_label_widget ($widget);
 
 		$widget->set_gtk_label_widget ($gtk_label);
@@ -909,7 +928,7 @@ sub add_widget_to_form_label_right {
 
 	$gtk_table->attach_defaults($gtk_entry, 0, 1, $row, $row+1);
 
-	if ( $widget->get_label ne '' and not $widget->has_label ) {
+        if ( (! defined $widget->get_label || $widget->get_label ne '') and not $widget->has_label ) {
 		my $gtk_label = $self->create_label_widget ($widget);
 		$gtk_table->attach($gtk_label, 1, 2, $row, $row+1, 'fill', [], 0, 0);
 		$widget->set_gtk_label_widget ($gtk_label);
@@ -970,6 +989,12 @@ sub add_widget_to_vpaned {
         }
         
         1;
+}
+
+sub add_widget_to_hpaned {
+        my $self = shift;
+        my ($widget, $hpaned) = @_;
+        return $self->add_widget_to_vpaned($widget, $hpaned);
 }
 
 sub add_widget_to_vbox {
